@@ -4,7 +4,11 @@ using UnityEngine;
 public class World : MonoBehaviour
 {
     public int worldSize = 5; // Size of the world in number of chunks
-    private int chunkSize = 16; // Assuming chunk size is 16x16x16
+    public int chunkSize = 16; // Assuming chunk size is 16x16x16
+    public int noiseSeed = 1234;
+    public float maxHeight = 0.2f;
+    public float noiseScale = 0.015f;
+    public float[,] noiseArray;
 
     private Dictionary<Vector3, Chunk> chunks;
 
@@ -23,6 +27,7 @@ public class World : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        noiseArray = GlobalNoise.GetNoise();
     }
 
     void Start()

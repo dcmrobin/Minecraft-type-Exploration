@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using SimplexNoise;
 
 public class Chunk : MonoBehaviour
 {
@@ -55,10 +56,30 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    voxels[x, y, z] = new Voxel(transform.position + new Vector3(x, y, z), Color.white);
+                    // Use world coordinates for noise sampling
+                    Vector3 worldPos = transform.position + new Vector3(x, y, z);
+                    Voxel.VoxelType type = DetermineVoxelType(worldPos.x, worldPos.y, worldPos.z);
+                    voxels[x, y, z] = new Voxel(worldPos, type, type != Voxel.VoxelType.Air);
                 }
             }
         }
+    }
+
+    private Voxel.VoxelType DetermineVoxelType(float x, float y, float z)
+    {
+        float noiseValue = GlobalNoise.GetGlobalNoiseValue(x, z, World.Instance.noiseArray);
+
+        // Normalize noise value to [0, 1]
+        float normalizedNoiseValue = (noiseValue + 1) / 2;
+
+        // Calculate maxHeight
+        float maxHeight = normalizedNoiseValue * World.Instance.maxHeight;
+
+
+        if (y <= maxHeight)
+            return Voxel.VoxelType.Grass; // Solid voxel
+        else
+            return Voxel.VoxelType.Air; // Air voxel
     }
 
     // New method to iterate through the voxel data
