@@ -8,7 +8,7 @@ public class Chunk : MonoBehaviour
     public int height = 16;
     public int depth = 16;
 
-    public float scale = 0.1f;  // Scale of the Perlin noise
+    public float noiseScale = 0.1f;  // Scale of the Perlin noise
 
     private Voxel[,,] voxels;
 
@@ -38,7 +38,7 @@ public class Chunk : MonoBehaviour
             for (int z = 0; z < depth; z++)
             {
                 // Generate Perlin noise for height
-                float noiseValue = Mathf.PerlinNoise((x + transform.position.x) * scale, (z + transform.position.z) * scale);
+                float noiseValue = Mathf.PerlinNoise((x + transform.position.x) * noiseScale, (z + transform.position.z) * noiseScale);
                 int y = Mathf.RoundToInt(noiseValue * (height - 1));
 
                 // Set voxel type based on height
