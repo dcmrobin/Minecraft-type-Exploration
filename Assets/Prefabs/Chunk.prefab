@@ -48,4 +48,4 @@ MonoBehaviour:
   width: 16
   height: 70
   depth: 16
-  scale: 0.1
+  noiseScale: 0.03

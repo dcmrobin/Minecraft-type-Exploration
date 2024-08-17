@@ -1,34 +1,75 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody))]
-public class PlayerController : MonoBehaviour
+public class BasicPlayerController : MonoBehaviour
 {
-    public float speed = 5f;
-    public float jumpForce = 5f;
+    public float mouseSensitivity = 2.0f;
+    public float moveSpeed = 17f;
+    public float jumpForce = 8.0f;
 
+    private float verticalRotation = 0f;
     private Rigidbody rb;
+    private float origMoveSpeed;
 
-    void Start()
-    {
+    private void Start() {
         rb = GetComponent<Rigidbody>();
+        origMoveSpeed = moveSpeed;
     }
 
-    void Update()
-    {
-        Move();
+    private void Update() {
+        HandleMouseLook();
+        HandleJump();
     }
 
-    void Move()
+    void FixedUpdate()
     {
-        float moveHorizontal = Input.GetAxis("Horizontal") * speed;
-        float moveVertical = Input.GetAxis("Vertical") * speed;
+        HandlePlayerMovement();
+    }
 
-        Vector3 movement = new Vector3(moveHorizontal, 0.0f, moveVertical);
-        rb.AddForce(movement);
+    void HandleMouseLook()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        verticalRotation -= mouseY;
+        verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
+
+        transform.Rotate(Vector3.up * mouseX);
+        Camera.main.transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
+    }
+
+    void HandlePlayerMovement()
+    {
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+
+        Vector3 moveDirection = new Vector3(horizontal, 0f, vertical).normalized;
+        Vector3 moveVelocity = transform.TransformDirection(moveDirection) * moveSpeed;
+
+        rb.velocity = new Vector3(moveVelocity.x, rb.velocity.y, moveVelocity.z);
+
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            moveSpeed = origMoveSpeed + 10;
+        }
+        else if (!Input.GetKey(KeyCode.LeftShift))
+        {
+            moveSpeed = origMoveSpeed;
+        }
+    }
+
+    void HandleJump()
+    {
+        if (Input.GetButtonDown("Jump") && IsGrounded())
         {
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         }
+    }
+
+    bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, Vector3.down, 1.1f);
     }
 }
