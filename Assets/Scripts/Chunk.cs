@@ -3,9 +3,12 @@ using UnityEngine;
 
 public class Chunk : MonoBehaviour
 {
+    public Material chunkMaterial;
     public int width = 16;
     public int height = 16;
     public int depth = 16;
+
+    public float scale = 0.1f;  // Scale of the Perlin noise
 
     private Voxel[,,] voxels;
 
@@ -15,10 +18,10 @@ public class Chunk : MonoBehaviour
 
     void Start()
     {
-        meshFilter = gameObject.GetComponent<MeshFilter>() == false ? gameObject.AddComponent<MeshFilter>() : gameObject.GetComponent<MeshFilter>();
-        meshRenderer = gameObject.GetComponent<MeshRenderer>() == false ? gameObject.AddComponent<MeshRenderer>() : gameObject.GetComponent<MeshRenderer>();
+        meshFilter = gameObject.AddComponent<MeshFilter>();
+        meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
-        meshRenderer.material = meshRenderer.material == null ? new Material(Shader.Find("Standard")) : meshRenderer.material;
+        meshRenderer.material = chunkMaterial;
 
         InitializeChunk();
         GenerateMesh();
@@ -30,20 +33,24 @@ public class Chunk : MonoBehaviour
 
         for (int x = 0; x < width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int z = 0; z < depth; z++)
             {
-                for (int z = 0; z < depth; z++)
+                // Generate Perlin noise for height
+                float noiseValue = Mathf.PerlinNoise((x + transform.position.x) * scale, (z + transform.position.z) * scale);
+                int y = Mathf.RoundToInt(noiseValue * (height - 1));
+
+                // Set voxel type based on height
+                for (int h = 0; h < height; h++)
                 {
                     Voxel.VoxelType type = Voxel.VoxelType.Air;
-
-                    if (y == 0)
+                    if (h == 0)
                         type = Voxel.VoxelType.Bedrock;
-                    else if (y < 4)
+                    else if (h <= y)
                         type = Voxel.VoxelType.Dirt;
-                    else if (y == 4)
+                    else if (h == y + 1)
                         type = Voxel.VoxelType.Grass;
 
-                    voxels[x, y, z] = new Voxel(type);
+                    voxels[x, h, z] = new Voxel(type);
                 }
             }
         }
@@ -108,23 +115,18 @@ public class Chunk : MonoBehaviour
         Vector3 right = Vector3.Cross(normal, Vector3.up);
         Vector3 up = Vector3.Cross(normal, right);
 
-        if (normal == Vector3.up || normal == Vector3.down)
-        {
-            right = Vector3.right;
-            up = Vector3.forward;
-        }
-
         vertices.Add(position + (normal - right - up) * 0.5f);
         vertices.Add(position + (normal + right - up) * 0.5f);
         vertices.Add(position + (normal + right + up) * 0.5f);
         vertices.Add(position + (normal - right + up) * 0.5f);
 
+        // Correct triangle winding order for outward-facing normals
         triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 2);
         triangles.Add(vertexIndex + 1);
-        triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 3);
         triangles.Add(vertexIndex + 2);
+        triangles.Add(vertexIndex);
+        triangles.Add(vertexIndex + 2);
+        triangles.Add(vertexIndex + 3);
 
         uvs.Add(new Vector2(0, 0));
         uvs.Add(new Vector2(1, 0));
