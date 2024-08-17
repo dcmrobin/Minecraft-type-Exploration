@@ -64,10 +64,10 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\2022.3.10f1\Editor\Data\Tools\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\ChatGPTversion\Scripts\TerrainGenerator.cs" />
-    <Compile Include="Assets\ChatGPTversion\Scripts\Voxel.cs" />
-    <Compile Include="Assets\ChatGPTversion\Scripts\PlayerController.cs" />
-    <Compile Include="Assets\ChatGPTversion\Scripts\Chunk.cs" />
+    <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
+    <Compile Include="Assets\Voxels\Scripts\World.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Chunk.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
