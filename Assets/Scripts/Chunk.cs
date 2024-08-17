@@ -115,12 +115,17 @@ public class Chunk : MonoBehaviour
         Vector3 right = Vector3.Cross(normal, Vector3.up);
         Vector3 up = Vector3.Cross(normal, right);
 
+        if (normal == Vector3.up || normal == Vector3.down)
+        {
+            right = Vector3.right;
+            up = Vector3.forward;
+        }
+
         vertices.Add(position + (normal - right - up) * 0.5f);
         vertices.Add(position + (normal + right - up) * 0.5f);
         vertices.Add(position + (normal + right + up) * 0.5f);
         vertices.Add(position + (normal - right + up) * 0.5f);
 
-        // Correct triangle winding order for outward-facing normals
         triangles.Add(vertexIndex);
         triangles.Add(vertexIndex + 1);
         triangles.Add(vertexIndex + 2);
