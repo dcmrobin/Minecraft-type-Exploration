@@ -6,6 +6,7 @@ public class World : MonoBehaviour
 {
     public int worldSize = 5; // Size of the world in number of chunks
     public int chunkSize = 16; // Assuming chunk size is 16x16x16
+    public int chunkHeight = 16;
     public int noiseSeed = 1234;
     public float maxHeight = 0.2f;
     public float noiseScale = 0.015f;
@@ -68,7 +69,7 @@ public class World : MonoBehaviour
     {
         Vector3Int playerChunkCoordinates = new Vector3Int(
             Mathf.FloorToInt(playerPosition.x / chunkSize),
-            Mathf.FloorToInt(playerPosition.y / chunkSize),
+            Mathf.FloorToInt(playerPosition.y / chunkHeight),
             Mathf.FloorToInt(playerPosition.z / chunkSize));
 
         // Check if player has moved to a new chunk
@@ -111,7 +112,7 @@ public class World : MonoBehaviour
                     Chunk chunkObject = ChunkPoolManager.Instance.GetChunk();
                     chunkObject.transform.position = chunkPosition;
                     chunkObject.transform.parent = this.transform; // Optional, for organizational purposes
-                    chunkObject.Initialize(chunkSize); // Initialize the chunk with its size
+                    chunkObject.Initialize(chunkSize, chunkHeight); // Initialize the chunk with its size
                     chunks.Add(chunkPosition, chunkObject); // Add the chunk to the dictionary
                     chunkObject.gameObject.SetActive(true);
                 }
@@ -126,7 +127,7 @@ public class World : MonoBehaviour
         {
             Vector3Int chunkCoord = new Vector3Int(
                 Mathf.FloorToInt(chunk.Key.x / chunkSize),
-                Mathf.FloorToInt(chunk.Key.y / chunkSize),
+                Mathf.FloorToInt(chunk.Key.y / chunkHeight),
                 Mathf.FloorToInt(chunk.Key.z / chunkSize));
 
             if (Vector3Int.Distance(chunkCoord, centerChunkCoordinates) > unloadRadius)
@@ -162,13 +163,13 @@ public class World : MonoBehaviour
             {
                 for (int z = 0; z < worldSize; z++)
                 {
-                    Vector3 chunkPosition = new Vector3(x * chunkSize, y * chunkSize, z * chunkSize);
+                    Vector3 chunkPosition = new Vector3(x * chunkSize, y * chunkHeight, z * chunkSize);
                     GameObject newChunkObject = new GameObject($"Chunk_{x}_{y}_{z}");
                     newChunkObject.transform.position = chunkPosition;
                     newChunkObject.transform.parent = this.transform;
 
                     Chunk newChunk = newChunkObject.AddComponent<Chunk>();
-                    newChunk.Initialize(chunkSize);
+                    newChunk.Initialize(chunkSize, chunkHeight);
                     chunks.Add(chunkPosition, newChunk);
                 }
             }
@@ -180,7 +181,7 @@ public class World : MonoBehaviour
         // Calculate the chunk's starting position based on the global position
         Vector3Int chunkCoordinates = new Vector3Int(
             Mathf.FloorToInt(globalPosition.x / chunkSize) * chunkSize,
-            Mathf.FloorToInt(globalPosition.y / chunkSize) * chunkSize,
+            Mathf.FloorToInt(globalPosition.y / chunkHeight) * chunkHeight,
             Mathf.FloorToInt(globalPosition.z / chunkSize) * chunkSize
         );
 

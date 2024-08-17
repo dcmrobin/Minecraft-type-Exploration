@@ -7,6 +7,7 @@ public struct VoxelTypeDeterminationJob : IJob
 {
     public NativeArray<Voxel> voxels;
     public int chunkSize;
+    public int chunkHeight;
     public float maxHeight;
     public float noiseScale;
     public Vector3 chunkWorldPosition;
@@ -15,11 +16,11 @@ public struct VoxelTypeDeterminationJob : IJob
     {
         for (int x = 0; x < chunkSize; x++)
         {
-            for (int y = 0; y < chunkSize; y++)
+            for (int y = 0; y < chunkHeight; y++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    int index = x * chunkSize * chunkSize + y * chunkSize + z;
+                    int index = x * chunkSize * chunkHeight + y * chunkSize + z;
                     Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
 
                     // Calculate noise

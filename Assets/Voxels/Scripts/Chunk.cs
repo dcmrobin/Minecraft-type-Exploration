@@ -8,6 +8,7 @@ public class Chunk : MonoBehaviour
 {
     private Voxel[,,] voxels;
     private int chunkSize = 16;
+    private int chunkHeight = 16;
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
     private List<Vector2> uvs = new List<Vector2>();
@@ -18,13 +19,14 @@ public class Chunk : MonoBehaviour
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
-        int totalVoxels = chunkSize * chunkSize * chunkSize;
+        int totalVoxels = chunkSize * chunkHeight * chunkSize;
         NativeArray<Voxel> voxelsData = new NativeArray<Voxel>(totalVoxels, Allocator.TempJob);
 
         VoxelTypeDeterminationJob voxelJob = new VoxelTypeDeterminationJob
         {
             voxels = voxelsData,
             chunkSize = this.chunkSize,
+            chunkHeight = this.chunkHeight,
             maxHeight = World.Instance.maxHeight,
             noiseScale = World.Instance.noiseScale,
             chunkWorldPosition = chunkWorldPosition // Pass the chunk's world position here
@@ -58,9 +60,10 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public void Initialize(int size) {
+    public void Initialize(int size, int height) {
         this.chunkSize = size;
-        voxels = new Voxel[size, size, size];
+        this.chunkHeight = height;
+        voxels = new Voxel[size, height, size];
         //InitializeVoxels(); <-- Remove
         GenerateVoxelData(transform.position); // <-- Add this
 
@@ -80,11 +83,11 @@ public class Chunk : MonoBehaviour
     {
         for (int x = 0; x < chunkSize; x++)
         {
-            for (int y = 0; y < chunkSize; y++)
+            for (int y = 0; y < chunkHeight; y++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    int index = x * chunkSize * chunkSize + y * chunkSize + z;
+                    int index = x * chunkSize * chunkHeight + y * chunkSize + z;
                     Voxel voxel = voxelsData[index];
 
                     // Use world coordinates for noise sampling
@@ -120,7 +123,7 @@ public class Chunk : MonoBehaviour
     {
         for (int x = 0; x < chunkSize; x++)
         {
-            for (int y = 0; y < chunkSize; y++)
+            for (int y = 0; y < chunkHeight; y++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
@@ -172,7 +175,7 @@ public class Chunk : MonoBehaviour
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
     {
-        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkSize || z < 0 || z >= chunkSize)
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
             return true; // Face is at the boundary of the chunk
         return !voxels[x, y, z].isActive;
     }
@@ -202,7 +205,7 @@ public class Chunk : MonoBehaviour
         int z = Mathf.RoundToInt(localPosition.z);
 
         // Check if the indices are within the bounds of the voxel array
-        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkSize && z >= 0 && z < chunkSize)
+        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
         {
             // Return the active state of the voxel at these indices
             return voxels[x, y, z].isActive;
@@ -310,7 +313,7 @@ public class Chunk : MonoBehaviour
 
     public void ResetChunk() {
     // Clear voxel data
-    voxels = new Voxel[chunkSize, chunkSize, chunkSize];
+    voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
   
     // Clear mesh data
     if (meshFilter != null && meshFilter.sharedMesh != null) {
