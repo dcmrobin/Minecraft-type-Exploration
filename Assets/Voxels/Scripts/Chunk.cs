@@ -13,39 +13,40 @@ public class Chunk : MonoBehaviour
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
 
-    void Start()
-    {
-        // Initialize Mesh Components
-        meshFilter = gameObject.AddComponent<MeshFilter>();
-        meshRenderer = gameObject.AddComponent<MeshRenderer>();
-        meshCollider = gameObject.AddComponent<MeshCollider>();
-
-        // Call this to generate the chunk mesh
-        GenerateMesh();
-    }
-
-    private void GenerateMesh()
+    public void GenerateMesh()
     {
         IterateVoxels(); // Make sure this processes all voxels
+        if (vertices.Count > 0) {
+            Mesh mesh = new Mesh();
+            mesh.vertices = vertices.ToArray();
+            mesh.triangles = triangles.ToArray();
+            mesh.uv = uvs.ToArray();
 
-        Mesh mesh = new Mesh();
-        mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
-        mesh.uv = uvs.ToArray();
+            mesh.RecalculateNormals(); // Important for lighting
 
-        mesh.RecalculateNormals(); // Important for lighting
+            meshFilter.mesh = mesh;
+            meshCollider.sharedMesh = mesh;
 
-        meshFilter.mesh = mesh;
-        meshCollider.sharedMesh = mesh;
-
-        meshRenderer.material = World.Instance.VoxelMaterial;
+            // Apply a material or texture if needed
+            meshRenderer.material = World.Instance.VoxelMaterial;
+        }
     }
 
-    public void Initialize(int size)
-    {
+    public void Initialize(int size) {
         this.chunkSize = size;
         voxels = new Voxel[size, size, size];
         InitializeVoxels();
+
+        meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>();} 
+
+        meshRenderer = GetComponent<MeshRenderer>();
+        if (meshRenderer == null) { meshRenderer = gameObject.AddComponent<MeshRenderer>();}
+
+        meshCollider = GetComponent<MeshCollider>();
+        if (meshCollider == null) {meshCollider = gameObject.AddComponent<MeshCollider>();}
+
+        GenerateMesh(); // Call after ensuring all necessary components and data are set
     }
 
     private void InitializeVoxels()
@@ -275,4 +276,17 @@ public class Chunk : MonoBehaviour
         triangles.Add(vertCount - 2);
         triangles.Add(vertCount - 1);
     }
+
+    public void ResetChunk() {
+    // Clear voxel data
+    voxels = new Voxel[chunkSize, chunkSize, chunkSize];
+  
+    // Clear mesh data
+    if (meshFilter != null && meshFilter.sharedMesh != null) {
+        meshFilter.sharedMesh.Clear();
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+    }
+}
 }
