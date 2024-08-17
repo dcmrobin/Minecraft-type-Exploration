@@ -24,7 +24,7 @@ public struct VoxelTypeDeterminationJob : IJob
                     Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
 
                     // Calculate noise
-                    float noiseValue = Noise.CalcPixel2D((int)worldPos.x, (int)worldPos.z, noiseScale);
+                    float noiseValue = Noise.CalcPixel3D((int)worldPos.x, (int)worldPos.y, (int)worldPos.z, noiseScale);
                     float normalizedNoiseValue = (noiseValue + 1) / 2;
                     float calculatedHeight = normalizedNoiseValue * maxHeight;
 
