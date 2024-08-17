@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    public float flySpeed = 12.0f; // Speed when flying
+    private bool isFlying = false; // Whether the player is currently flying
+
     public CharacterController characterController;
     public Transform cameraTransform;
 
@@ -11,15 +14,49 @@ public class PlayerController : MonoBehaviour
 
     private Vector3 playerVelocity;
     private bool groundedPlayer;
+    private Transform playerTransform;
 
     void Start()
     {
         SetPlayerCenter();
+        playerTransform = transform;
+    }
+
+    public Vector3 getPlayerPosition()
+    {
+        return playerTransform.position; // Return the current position of the player.
     }
 
     void Update() 
     {
-        PlayerMove();
+        // Toggle fly mode
+        if (Input.GetKeyDown(KeyCode.F)) {
+            isFlying = !isFlying;
+            characterController.enabled = !isFlying; // Disable the character controller when flying
+        }
+
+        if (isFlying) {
+            Fly();
+        } else {
+            PlayerMove();
+        }
+    }
+
+    void Fly()
+    {
+        // Get input for flying
+        float x = Input.GetAxis("Horizontal");
+        float y = Input.GetAxis("Jump") - Input.GetAxis("Crouch"); // Space to go up, Crouch (Ctrl) to go down
+        float z = Input.GetAxis("Vertical");
+
+        Vector3 flyDirection = cameraTransform.right * x + cameraTransform.up * y + cameraTransform.forward * z;
+        transform.position += flyDirection * flySpeed * Time.deltaTime;
+
+        /*if (Input.GetKeyDown(KeyCode.AltGr) || Input.GetKeyDown(KeyCode.LeftAlt))
+        {
+            isCursorLocked = !isCursorLocked;
+            ToggleCursorState();
+        }*/
     }
 
     void SetPlayerCenter() {

@@ -32,4 +32,17 @@ public static class GlobalNoise {
             return 0; // Default value if out of bounds
         }
     }
+
+    public static float GetNoisePoint(int x, int z) 
+    {     
+        float scale = World.Instance.noiseScale;
+        float noise = Noise.CalcPixel2D(x, z, scale);
+        
+        return noise;
+    }
+
+    public static void SetSeed() 
+    {
+        Noise.Seed = World.Instance.noiseSeed;
+    }
 }

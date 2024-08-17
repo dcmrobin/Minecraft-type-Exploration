@@ -67,7 +67,8 @@ public class Chunk : MonoBehaviour
 
     private Voxel.VoxelType DetermineVoxelType(float x, float y, float z)
     {
-        float noiseValue = GlobalNoise.GetGlobalNoiseValue(x, z, World.Instance.noiseArray);
+        // Now we use the new GetNoisePoint() function
+        float noiseValue = GlobalNoise.GetNoisePoint((int)x, (int)z); 
 
         // Normalize noise value to [0, 1]
         float normalizedNoiseValue = (noiseValue + 1) / 2;
