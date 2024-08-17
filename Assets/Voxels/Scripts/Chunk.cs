@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Collections;
+using Unity.Jobs;
 using SimplexNoise;
 
 public class Chunk : MonoBehaviour
@@ -12,6 +14,30 @@ public class Chunk : MonoBehaviour
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
+
+
+    private void GenerateVoxelData(Vector3 chunkWorldPosition)
+    {
+        int totalVoxels = chunkSize * chunkSize * chunkSize;
+        NativeArray<Voxel> voxelsData = new NativeArray<Voxel>(totalVoxels, Allocator.TempJob);
+
+        VoxelTypeDeterminationJob voxelJob = new VoxelTypeDeterminationJob
+        {
+            voxels = voxelsData,
+            chunkSize = this.chunkSize,
+            maxHeight = World.Instance.maxHeight,
+            noiseScale = World.Instance.noiseScale,
+            chunkWorldPosition = chunkWorldPosition // Pass the chunk's world position here
+        };
+
+        JobHandle jobHandle = voxelJob.Schedule();
+        jobHandle.Complete();
+
+        // Use voxelsData to initialize voxels array
+        InitializeVoxels(voxelsData);
+
+        voxelsData.Dispose();
+    }
 
     public void GenerateMesh()
     {
@@ -35,7 +61,8 @@ public class Chunk : MonoBehaviour
     public void Initialize(int size) {
         this.chunkSize = size;
         voxels = new Voxel[size, size, size];
-        InitializeVoxels();
+        //InitializeVoxels(); <-- Remove
+        GenerateVoxelData(transform.position); // <-- Add this
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>();} 
@@ -49,7 +76,7 @@ public class Chunk : MonoBehaviour
         GenerateMesh(); // Call after ensuring all necessary components and data are set
     }
 
-    private void InitializeVoxels()
+    private void InitializeVoxels(NativeArray<Voxel> voxelsData)
     {
         for (int x = 0; x < chunkSize; x++)
         {
@@ -57,10 +84,14 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
+                    int index = x * chunkSize * chunkSize + y * chunkSize + z;
+                    Voxel voxel = voxelsData[index];
+
                     // Use world coordinates for noise sampling
                     Vector3 worldPos = transform.position + new Vector3(x, y, z);
-                    Voxel.VoxelType type = DetermineVoxelType(worldPos.x, worldPos.y, worldPos.z);
-                    voxels[x, y, z] = new Voxel(worldPos, type, type != Voxel.VoxelType.Air);
+
+                    // Now the voxel type is already determined by the job
+                    voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
                 }
             }
         }
