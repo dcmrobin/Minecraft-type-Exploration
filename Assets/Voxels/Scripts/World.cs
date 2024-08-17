@@ -49,6 +49,7 @@ public class World : MonoBehaviour
 
     void Start()
     {
+        noiseSeed = Random.Range(1, 1000000);
         playerController = FindObjectOfType<PlayerController>(); 
         chunks = new Dictionary<Vector3, Chunk>();
         lastPlayerChunkCoordinates = Vector3Int.zero; 
