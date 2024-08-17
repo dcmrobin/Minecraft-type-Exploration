@@ -25,6 +25,8 @@ public class Chunk : MonoBehaviour
 
         InitializeChunk();
         GenerateMesh();
+
+        gameObject.AddComponent<MeshCollider>().sharedMesh = meshFilter.mesh;
     }
 
     void InitializeChunk()
@@ -115,10 +117,15 @@ public class Chunk : MonoBehaviour
         Vector3 right = Vector3.Cross(normal, Vector3.up);
         Vector3 up = Vector3.Cross(normal, right);
 
-        if (normal == Vector3.up || normal == Vector3.down)
+        if (normal == Vector3.down)
         {
             right = Vector3.right;
             up = Vector3.forward;
+        }
+        else if (normal == Vector3.up)
+        {
+            right = Vector3.right;
+            up = Vector3.back;
         }
 
         vertices.Add(position + (normal - right - up) * 0.5f);
