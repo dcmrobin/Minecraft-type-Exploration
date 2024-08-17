@@ -1,75 +1,68 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class BasicPlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
-    public float mouseSensitivity = 2.0f;
-    public float moveSpeed = 17f;
-    public float jumpForce = 8.0f;
+    public CharacterController characterController;
+    public Transform cameraTransform;
 
-    private float verticalRotation = 0f;
-    private Rigidbody rb;
-    private float origMoveSpeed;
+    public float speed = 6.0f;
+    public float gravity = -9.81f;
+    public float jumpHeight = 2.0f;
 
-    private void Start() {
-        rb = GetComponent<Rigidbody>();
-        origMoveSpeed = moveSpeed;
-    }
+    private Vector3 playerVelocity;
+    private bool groundedPlayer;
 
-    private void Update() {
-        HandleMouseLook();
-        HandleJump();
-    }
-
-    void FixedUpdate()
+    void Start()
     {
-        HandlePlayerMovement();
+        SetPlayerCenter();
     }
 
-    void HandleMouseLook()
+    void Update() 
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
-
-        verticalRotation -= mouseY;
-        verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
-
-        transform.Rotate(Vector3.up * mouseX);
-        Camera.main.transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
+        PlayerMove();
     }
 
-    void HandlePlayerMovement()
-    {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
+    void SetPlayerCenter() {
+        // Calculate the center position of the world
+        int worldCenterIndex = World.Instance.worldSize / 2;
+        float worldCenterX = worldCenterIndex * World.Instance.chunkSize;
+        float worldCenterZ = worldCenterIndex * World.Instance.chunkSize;
 
-        Vector3 moveDirection = new Vector3(horizontal, 0f, vertical).normalized;
-        Vector3 moveVelocity = transform.TransformDirection(moveDirection) * moveSpeed;
+        float noiseValue = GlobalNoise.GetGlobalNoiseValue(worldCenterX, worldCenterZ, World.Instance.noiseArray);
 
-        rb.velocity = new Vector3(moveVelocity.x, rb.velocity.y, moveVelocity.z);
+        // Normalize noise value to [0, 1]
+        float normalizedNoiseValue = (noiseValue + 1) / 2;
 
-        if (Input.GetKey(KeyCode.LeftShift))
+        // Calculate maxHeight
+        float maxHeight = normalizedNoiseValue * World.Instance.maxHeight;
+       
+        // Adjust the height for the player's position (assuming the player's capsule collider has a height of 2 units)
+        maxHeight += 1.5f; // This ensures that the base of the player is at the terrain height
+
+        // Set the player's position to be on top of the terrain
+        transform.position = new Vector3(worldCenterX, maxHeight, worldCenterZ);
+    }
+
+    void PlayerMove() {
+        groundedPlayer = characterController.isGrounded;
+        if (groundedPlayer && playerVelocity.y < 0)
         {
-            moveSpeed = origMoveSpeed + 10;
+            playerVelocity.y = 0f;
         }
-        else if (!Input.GetKey(KeyCode.LeftShift))
-        {
-            moveSpeed = origMoveSpeed;
-        }
-    }
 
-    void HandleJump()
-    {
-        if (Input.GetButtonDown("Jump") && IsGrounded())
-        {
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-        }
-    }
+        Vector3 move = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
+        move = cameraTransform.forward * move.z + cameraTransform.right * move.x;
+        move.y = 0; // We do not want to move up/down by the camera's forward vector
 
-    bool IsGrounded()
-    {
-        return Physics.Raycast(transform.position, Vector3.down, 1.1f);
+        characterController.Move(move * Time.deltaTime * speed);
+
+        // Changes the height position of the player..
+        if (Input.GetButtonDown("Jump") && groundedPlayer)
+        {
+            playerVelocity.y += Mathf.Sqrt(jumpHeight * -3.0f * gravity);
+        }
+
+        playerVelocity.y += gravity * Time.deltaTime;
+        characterController.Move(playerVelocity * Time.deltaTime);
     }
 }

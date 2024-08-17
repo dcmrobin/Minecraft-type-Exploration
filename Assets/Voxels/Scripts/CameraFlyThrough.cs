@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class CameraFlyThrough : MonoBehaviour
 {
-    public float moveSpeed = 5.0f;
     public float turnSpeed = 60.0f;
     public float pitchSensitivity = 2.0f;
     public float yawSensitivity = 2.0f;
@@ -37,13 +36,6 @@ public class CameraFlyThrough : MonoBehaviour
             // Apply the rotation to the camera
             transform.eulerAngles = new Vector3(pitch, yaw, 0.0f);
         }
-
-        // Move the camera based on arrow keys/WASD input
-        float x = Input.GetAxis("Horizontal") * moveSpeed * Time.deltaTime; // A/D or Left Arrow/Right Arrow
-        float z = Input.GetAxis("Vertical") * moveSpeed * Time.deltaTime; // W/S or Up Arrow/Down Arrow
-
-        // Apply the movement
-        transform.Translate(x, 0, z);
     }
 
     private void ToggleCursorState()
