@@ -98,11 +98,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4ff7e01fb4d9494bafd0eb6d237a95c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  flySpeed: 12
   characterController: {fileID: 3226237358230855917}
-  cameraTransform: {fileID: 0}
+  cameraTransform: {fileID: 1529492091849487156}
   speed: 6
-  gravity: -9.81
-  jumpHeight: 2
+  gravity: -30
+  jumpHeight: 1
 --- !u!143 &3226237358230855917
 CharacterController:
   m_ObjectHideFlags: 0

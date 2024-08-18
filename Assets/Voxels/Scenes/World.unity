@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 261.90073, g: 324.45557, b: 429.4347, a: 1}
+  m_IndirectSpecularColor: {r: 5158.107, g: 6391.5474, b: 8459.401, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -217,11 +217,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &1070746078 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1529492091849487156, guid: 07a55690a5d59ab489db27e92d2347f2, type: 3}
-  m_PrefabInstance: {fileID: 1178019695}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1178019695
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -234,10 +229,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
-    - target: {fileID: 4202964742058437028, guid: 07a55690a5d59ab489db27e92d2347f2, type: 3}
-      propertyPath: cameraTransform
-      value: 
-      objectReference: {fileID: 1070746078}
     - target: {fileID: 9138191173525003248, guid: 07a55690a5d59ab489db27e92d2347f2, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
