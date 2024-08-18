@@ -65,10 +65,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Voxels\Scripts\VoxelTypeDeterminationJob.cs" />
+    <Compile Include="Assets\Voxel DAG\Scripts\VoxelNode.cs" />
+    <Compile Include="Assets\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
+    <Compile Include="Assets\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
     <Compile Include="Assets\Voxels\Scripts\GlobalNoise.cs" />
     <Compile Include="Assets\Voxels\Scripts\ChunkPoolManager.cs" />
     <Compile Include="Assets\Voxels\Scripts\World.cs" />
     <Compile Include="Assets\Voxels\Scripts\Chunk.cs" />
+    <Compile Include="Assets\Voxel DAG\Scripts\DAGMain.cs" />
     <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
     <Compile Include="Assets\Voxels\Scripts\Noise.cs" />
