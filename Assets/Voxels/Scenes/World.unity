@@ -506,10 +506,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 40
+  chunkHeight: 150
   noiseSeed: 1234
   maxHeight: 0.2
   noiseScale: 0.015
+  mountainsCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: -0.0003288202
+      value: 0.049987793
+      inSlope: 0.94969994
+      outSlope: 0.94969994
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0.94969994
+      outSlope: 0.94969994
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: b2cdd1213d1cefd41b37240dd1f32f77, type: 2}
   loadRadius: 5
   unloadRadius: 7
