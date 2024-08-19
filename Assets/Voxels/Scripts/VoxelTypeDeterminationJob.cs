@@ -29,7 +29,15 @@ public struct VoxelTypeDeterminationJob : IJob
                     float calculatedHeight = normalizedNoiseValue * maxHeight;
 
                     // Determine voxel type
-                    Voxel.VoxelType type = (y <= calculatedHeight) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
+                    Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
+                    if (y <= calculatedHeight - 1 && y >= calculatedHeight - 5)
+                    {
+                        type = Voxel.VoxelType.Dirt;
+                    }
+                    else if (y < calculatedHeight - 5)
+                    {
+                        type = Voxel.VoxelType.Stone;
+                    }
 
                     // Calculate the position for the voxel
                     Vector3 voxelPosition = new Vector3(x, y, z); // Assuming local position in chunk

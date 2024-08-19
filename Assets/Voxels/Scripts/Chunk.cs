@@ -217,9 +217,8 @@ public class Chunk : MonoBehaviour
 
     private void AddFaceData(int x, int y, int z, int faceIndex)
     {
-        // Based on faceIndex, determine vertices and triangles
-        // Add vertices and triangles for the visible face
-        // Calculate and add corresponding UVs
+        Voxel voxel = voxels[x, y, z];
+        Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
 
         if (faceIndex == 0) // Top Face
         {
@@ -227,10 +226,7 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x,     y + 1, z + 1)); 
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
             vertices.Add(new Vector3(x + 1, y + 1, z    )); 
-            uvs.Add(new Vector2(0, 0));
-            uvs.Add(new Vector2(1, 0));
-            uvs.Add(new Vector2(1, 1));
-            uvs.Add(new Vector2(0, 1));
+            uvs.AddRange(faceUVs);
         }
 
         if (faceIndex == 1) // Bottom Face
@@ -239,10 +235,7 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y, z    )); 
             vertices.Add(new Vector3(x + 1, y, z + 1));
             vertices.Add(new Vector3(x,     y, z + 1)); 
-            uvs.Add(new Vector2(0, 0));
-            uvs.Add(new Vector2(0, 1));
-            uvs.Add(new Vector2(1, 1));
-            uvs.Add(new Vector2(1, 0));
+            uvs.AddRange(faceUVs);
         }
 
         if (faceIndex == 2) // Left Face
@@ -251,10 +244,7 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x, y,     z + 1));
             vertices.Add(new Vector3(x, y + 1, z + 1));
             vertices.Add(new Vector3(x, y + 1, z    ));
-            uvs.Add(new Vector2(0, 0));
-            uvs.Add(new Vector2(0, 0));
-            uvs.Add(new Vector2(0, 1));
-            uvs.Add(new Vector2(0, 1));
+            uvs.AddRange(faceUVs);
         }
 
         if (faceIndex == 3) // Right Face
@@ -263,10 +253,7 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y,     z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
-            uvs.Add(new Vector2(1, 0));
-            uvs.Add(new Vector2(1, 1));
-            uvs.Add(new Vector2(1, 1));
-            uvs.Add(new Vector2(1, 0));
+            uvs.AddRange(faceUVs);
         }
 
         if (faceIndex == 4) // Front Face
@@ -275,10 +262,7 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y,     z + 1));
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
             vertices.Add(new Vector3(x,     y + 1, z + 1));
-            uvs.Add(new Vector2(0, 1));
-            uvs.Add(new Vector2(0, 1));
-            uvs.Add(new Vector2(1, 1));
-            uvs.Add(new Vector2(1, 1));
+            uvs.AddRange(faceUVs);
         }
 
         if (faceIndex == 5) // Back Face
@@ -287,13 +271,49 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x,     y,     z    ));
             vertices.Add(new Vector3(x,     y + 1, z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z    ));
-            uvs.Add(new Vector2(0, 0));
-            uvs.Add(new Vector2(1, 0));
-            uvs.Add(new Vector2(1, 0));
-            uvs.Add(new Vector2(0, 0));
-            
+            uvs.AddRange(faceUVs);
         }
+
         AddTriangleIndices();
+    }
+
+    private Vector2[] GetFaceUVs(Voxel.VoxelType type, int faceIndex)
+    {
+        float tileSize = 0.25f; // Assuming a 4x4 texture atlas (1/4 = 0.25)
+        Vector2[] uvs = new Vector2[4];
+
+        Vector2 tileOffset = GetTileOffset(type, faceIndex);
+
+        uvs[0] = new Vector2(tileOffset.x, tileOffset.y);
+        uvs[1] = new Vector2(tileOffset.x + tileSize, tileOffset.y);
+        uvs[2] = new Vector2(tileOffset.x + tileSize, tileOffset.y + tileSize);
+        uvs[3] = new Vector2(tileOffset.x, tileOffset.y + tileSize);
+
+        return uvs;
+    }
+
+    private Vector2 GetTileOffset(Voxel.VoxelType type, int faceIndex)
+    {
+        switch (type)
+        {
+            case Voxel.VoxelType.Grass:
+                if (faceIndex == 0) // Top face
+                    return new Vector2(0, 0.75f); // Adjust based on your texture atlas
+                if (faceIndex == 1) // Bottom face
+                    return new Vector2(0.25f, 0.75f); // Adjust based on your texture atlas
+                return new Vector2(0, 0.5f); // Side faces
+
+            case Voxel.VoxelType.Dirt:
+                return new Vector2(0.25f, 0.75f); // Adjust based on your texture atlas
+
+            case Voxel.VoxelType.Stone:
+                return new Vector2(0.25f, 0.5f); // Adjust based on your texture atlas
+
+            // Add more cases for other types...
+
+            default:
+                return Vector2.zero;
+        }
     }
 
     private void AddTriangleIndices()

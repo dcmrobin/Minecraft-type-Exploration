@@ -10,6 +10,7 @@ public struct Voxel
   {
       Air,    // Represents empty space
       Grass,  // Represents grass block
+      Dirt,
       Stone,  // Represents stone block
       // Add more types as needed
   }
