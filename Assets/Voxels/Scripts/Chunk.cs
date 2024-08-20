@@ -20,54 +20,71 @@ public class Chunk : MonoBehaviour
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
-        int totalVoxels = chunkSize * chunkHeight * chunkSize;
-        NativeArray<Voxel> voxelsData = new NativeArray<Voxel>(totalVoxels, Allocator.TempJob);
+        // Precompute noise values and curve evaluations
+        float[,] baseNoiseMap = new float[chunkSize, chunkSize];
+        float[,] lod1Map = new float[chunkSize, chunkSize];
+        float[,] overhangsMap = new float[chunkSize, chunkSize];
+        float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
+        float[,] mountainCurveValues = new float[chunkSize, chunkSize];
+        float[,] biomeCurveValues = new float[chunkSize, chunkSize];
 
         for (int x = 0; x < chunkSize; x++)
         {
-            for (int y = 0; y < chunkHeight; y++)
+            for (int z = 0; z < chunkSize; z++)
             {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                    Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
+                Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
 
-                    float baseNoise = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
-                    float lod1 = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                    float overhangsNoise = Noise.CalcPixel3D((int)worldPos.x, (int)worldPos.y - (int)(lod1 * 100), (int)worldPos.z, 0.025f) / 600;
-                    float perlinBiomeNoise = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
+                baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
+                lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
+                overhangsMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
+                biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
-                    // Evaluate noise using the AnimationCurve
-                    float normalizedNoiseValue = (mountainsCurve.Evaluate(baseNoise) - overhangsNoise + lod1) * 400;
-                    float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
-                    calculatedHeight *= mountainBiomeCurve.Evaluate(perlinBiomeNoise);
-
-                    // Determine voxel type
-                    Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
-                    if (y <= calculatedHeight - 1 && y >= calculatedHeight - 2)
-                    {
-                        type = Voxel.VoxelType.Dirt;
-                    }
-                    else if (y < calculatedHeight - 2)
-                    {
-                        type = Voxel.VoxelType.Stone;
-                    }
-
-                    if (type == Voxel.VoxelType.Air && y < 3)
-                    {
-                        type = Voxel.VoxelType.Grass;
-                    }
-
-                    // Calculate the position for the voxel
-                    Vector3 voxelPosition = new Vector3(x, y, z); // Assuming local position in chunk
-
-                    // Set voxel data
-                    voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
-                }
+                mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
+                biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
             }
         }
 
-        InitializeVoxels(voxelsData);
+        // Schedule the job
+        GenerateVoxelsJob generateVoxelsJob = new GenerateVoxelsJob
+        {
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            chunkWorldPosition = chunkWorldPosition,
+            maxHeight = World.Instance.maxHeight,
+            baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
+            lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
+            overhangsMap = new NativeArray<float>(overhangsMap.Length, Allocator.TempJob),
+            mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
+            biomeCurveValues = new NativeArray<float>(biomeCurveValues.Length, Allocator.TempJob),
+            voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
+        };
+
+        // Copy data to NativeArrays
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                int index = x * chunkSize + z;
+                generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
+                generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
+                generateVoxelsJob.overhangsMap[index] = overhangsMap[x, z];
+                generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
+                generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
+            }
+        }
+
+        JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+        handle.Complete();
+
+        InitializeVoxels(generateVoxelsJob.voxelsData);
+
+        // Dispose of NativeArrays
+        generateVoxelsJob.baseNoiseMap.Dispose();
+        generateVoxelsJob.lod1Map.Dispose();
+        generateVoxelsJob.overhangsMap.Dispose();
+        generateVoxelsJob.mountainCurveValues.Dispose();
+        generateVoxelsJob.biomeCurveValues.Dispose();
+        generateVoxelsJob.voxelsData.Dispose();
     }
 
     public void GenerateMesh()
@@ -354,6 +371,65 @@ public class Chunk : MonoBehaviour
             vertices.Clear();
             triangles.Clear();
             uvs.Clear();
+        }
+    }
+
+    public struct GenerateVoxelsJob : IJobParallelFor
+    {
+        public int chunkSize;
+        public int chunkHeight;
+        public Vector3 chunkWorldPosition;
+        public float maxHeight;
+
+        [ReadOnly]
+        public NativeArray<float> baseNoiseMap;
+        [ReadOnly]
+        public NativeArray<float> lod1Map;
+        [ReadOnly]
+        public NativeArray<float> overhangsMap;
+        [ReadOnly]
+        public NativeArray<float> mountainCurveValues;
+        [ReadOnly]
+        public NativeArray<float> biomeCurveValues;
+
+        public NativeArray<Voxel> voxelsData;
+
+        public void Execute(int index)
+        {
+            int x = index / (chunkSize * chunkHeight);
+            int y = (index / chunkSize) % chunkHeight;
+            int z = index % chunkSize;
+
+            Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
+            int mapIndex = x * chunkSize + z;
+
+            float baseNoise = baseNoiseMap[mapIndex];
+            float lod1 = lod1Map[mapIndex];
+            float overhangsNoise = overhangsMap[mapIndex];
+            float mountainCurve = mountainCurveValues[mapIndex];
+            float biomeCurve = biomeCurveValues[mapIndex];
+
+            float normalizedNoiseValue = (mountainCurve - overhangsNoise + lod1) * 400;
+            float calculatedHeight = normalizedNoiseValue * maxHeight;
+            calculatedHeight *= biomeCurve;
+
+            Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
+            if (y <= calculatedHeight - 1 && y >= calculatedHeight - 2)
+            {
+                type = Voxel.VoxelType.Dirt;
+            }
+            else if (y < calculatedHeight - 2)
+            {
+                type = Voxel.VoxelType.Stone;
+            }
+
+            if (type == Voxel.VoxelType.Air && y < 3)
+            {
+                type = Voxel.VoxelType.Grass;
+            }
+
+            Vector3 voxelPosition = new Vector3(x, y, z);
+            voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
         }
     }
 }
