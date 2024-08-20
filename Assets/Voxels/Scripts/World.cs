@@ -11,6 +11,8 @@ public class World : MonoBehaviour
     public float maxHeight = 0.2f;
     public float noiseScale = 0.015f;
     public float[,] noiseArray;
+    public AnimationCurve mountainsCurve;
+    public AnimationCurve mountainBiomeCurve;
 
     private Dictionary<Vector3, Chunk> chunks;
 
@@ -112,7 +114,7 @@ public class World : MonoBehaviour
                     Chunk chunkObject = ChunkPoolManager.Instance.GetChunk();
                     chunkObject.transform.position = chunkPosition;
                     chunkObject.transform.parent = this.transform; // Optional, for organizational purposes
-                    chunkObject.Initialize(chunkSize, chunkHeight); // Initialize the chunk with its size
+                    chunkObject.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve); // Initialize the chunk with its size
                     chunks.Add(chunkPosition, chunkObject); // Add the chunk to the dictionary
                     chunkObject.gameObject.SetActive(true);
                 }
@@ -169,7 +171,7 @@ public class World : MonoBehaviour
                     newChunkObject.transform.parent = this.transform;
 
                     Chunk newChunk = newChunkObject.AddComponent<Chunk>();
-                    newChunk.Initialize(chunkSize, chunkHeight);
+                    newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
                     chunks.Add(chunkPosition, newChunk);
                 }
             }

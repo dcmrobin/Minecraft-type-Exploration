@@ -6,6 +6,8 @@ using SimplexNoise;
 
 public class Chunk : MonoBehaviour
 {
+    public AnimationCurve mountainsCurve;
+    public AnimationCurve mountainBiomeCurve;
     private Voxel[,,] voxels;
     private int chunkSize = 16;
     private int chunkHeight = 16;
@@ -16,29 +18,56 @@ public class Chunk : MonoBehaviour
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
 
-
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
         int totalVoxels = chunkSize * chunkHeight * chunkSize;
         NativeArray<Voxel> voxelsData = new NativeArray<Voxel>(totalVoxels, Allocator.TempJob);
 
-        VoxelTypeDeterminationJob voxelJob = new VoxelTypeDeterminationJob
+        for (int x = 0; x < chunkSize; x++)
         {
-            voxels = voxelsData,
-            chunkSize = this.chunkSize,
-            chunkHeight = this.chunkHeight,
-            maxHeight = World.Instance.maxHeight,
-            noiseScale = World.Instance.noiseScale,
-            chunkWorldPosition = chunkWorldPosition // Pass the chunk's world position here
-        };
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    int index = x * chunkSize * chunkHeight + y * chunkSize + z;
+                    Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
 
-        JobHandle jobHandle = voxelJob.Schedule();
-        jobHandle.Complete();
+                    float baseNoise = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
+                    float lod1 = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
+                    float overhangsNoise = Noise.CalcPixel3D((int)worldPos.x, (int)worldPos.y - (int)(lod1 * 100), (int)worldPos.z, 0.025f) / 600;
+                    float perlinBiomeNoise = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
-        // Use voxelsData to initialize voxels array
+                    // Evaluate noise using the AnimationCurve
+                    float normalizedNoiseValue = (mountainsCurve.Evaluate(baseNoise) - overhangsNoise + lod1) * 400;
+                    float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
+                    calculatedHeight *= mountainBiomeCurve.Evaluate(perlinBiomeNoise);
+
+                    // Determine voxel type
+                    Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
+                    if (y <= calculatedHeight - 1 && y >= calculatedHeight - 5)
+                    {
+                        type = Voxel.VoxelType.Dirt;
+                    }
+                    else if (y < calculatedHeight - 4)
+                    {
+                        type = Voxel.VoxelType.Stone;
+                    }
+
+                    if (type == Voxel.VoxelType.Air && y < 3)
+                    {
+                        type = Voxel.VoxelType.Grass;
+                    }
+
+                    // Calculate the position for the voxel
+                    Vector3 voxelPosition = new Vector3(x, y, z); // Assuming local position in chunk
+
+                    // Set voxel data
+                    voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
+                }
+            }
+        }
+
         InitializeVoxels(voxelsData);
-
-        voxelsData.Dispose();
     }
 
     public void GenerateMesh()
@@ -60,9 +89,11 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public void Initialize(int size, int height) {
+    public void Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve) {
         this.chunkSize = size;
         this.chunkHeight = height;
+        this.mountainsCurve = mountainsCurve;
+        this.mountainBiomeCurve = mountainBiomeCurve;
         voxels = new Voxel[size, height, size];
         //InitializeVoxels(); <-- Remove
         GenerateVoxelData(transform.position); // <-- Add this
@@ -98,24 +129,6 @@ public class Chunk : MonoBehaviour
                 }
             }
         }
-    }
-
-    private Voxel.VoxelType DetermineVoxelType(float x, float y, float z)
-    {
-        // Now we use the new GetNoisePoint() function
-        float noiseValue = GlobalNoise.GetNoisePoint((int)x, (int)z); 
-
-        // Normalize noise value to [0, 1]
-        float normalizedNoiseValue = (noiseValue + 1) / 2;
-
-        // Calculate maxHeight
-        float maxHeight = normalizedNoiseValue * World.Instance.maxHeight;
-
-
-        if (y <= maxHeight)
-            return Voxel.VoxelType.Grass; // Solid voxel
-        else
-            return Voxel.VoxelType.Air; // Air voxel
     }
 
     // New method to iterate through the voxel data
@@ -332,15 +345,15 @@ public class Chunk : MonoBehaviour
     }
 
     public void ResetChunk() {
-    // Clear voxel data
-    voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
-  
-    // Clear mesh data
-    if (meshFilter != null && meshFilter.sharedMesh != null) {
-        meshFilter.sharedMesh.Clear();
-        vertices.Clear();
-        triangles.Clear();
-        uvs.Clear();
+        // Clear voxel data
+        voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
+
+        // Clear mesh data
+        if (meshFilter != null && meshFilter.sharedMesh != null) {
+            meshFilter.sharedMesh.Clear();
+            vertices.Clear();
+            triangles.Clear();
+            uvs.Clear();
+        }
     }
-}
 }
