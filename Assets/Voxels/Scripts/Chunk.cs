@@ -73,7 +73,7 @@ public class Chunk : MonoBehaviour
             }
         }
 
-        CheckGrassBlocksJob checkGrassBlocksJob = new CheckGrassBlocksJob
+        BlockUpdateJob blockUpdateJob = new BlockUpdateJob
         {
             chunkSize = chunkSize,
             chunkHeight = chunkHeight,
@@ -84,11 +84,11 @@ public class Chunk : MonoBehaviour
         JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         handle.Complete();
 
-        JobHandle checkGrassBlocksHandle = checkGrassBlocksJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+        JobHandle checkGrassBlocksHandle = blockUpdateJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         checkGrassBlocksHandle.Complete();
 
         InitializeVoxels(generateVoxelsJob.voxelsData);
-        InitializeVoxels(checkGrassBlocksJob.updatedVoxelsData);
+        InitializeVoxels(blockUpdateJob.updatedVoxelsData);
 
         // Dispose of NativeArrays
         generateVoxelsJob.baseNoiseMap.Dispose();
@@ -97,7 +97,7 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.mountainCurveValues.Dispose();
         generateVoxelsJob.biomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
-        checkGrassBlocksJob.updatedVoxelsData.Dispose();
+        blockUpdateJob.updatedVoxelsData.Dispose();
     }
 
     public void GenerateMesh()
@@ -446,7 +446,7 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public struct CheckGrassBlocksJob : IJobParallelFor
+    public struct BlockUpdateJob : IJobParallelFor
     {
         public int chunkSize;
         public int chunkHeight;
