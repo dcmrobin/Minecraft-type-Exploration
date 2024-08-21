@@ -84,8 +84,8 @@ public class Chunk : MonoBehaviour
         JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         handle.Complete();
 
-        JobHandle checkGrassBlocksHandle = blockUpdateJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-        checkGrassBlocksHandle.Complete();
+        JobHandle blockUpdateHandle = blockUpdateJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+        blockUpdateHandle.Complete();
 
         InitializeVoxels(generateVoxelsJob.voxelsData);
         InitializeVoxels(blockUpdateJob.updatedVoxelsData);
