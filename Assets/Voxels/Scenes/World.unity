@@ -24,7 +24,7 @@ RenderSettings:
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 4
+  m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
   m_SkyboxMaterial: {fileID: 0}
   m_HaloStrength: 0.5
@@ -602,24 +602,33 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 0
       value: 0.1000061
-      inSlope: 0.216831
-      outSlope: 0.216831
+      inSlope: 0.083500504
+      outSlope: 0.083500504
       tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0.33333334
     - serializedVersion: 3
-      time: 0.24172716
-      value: 0.15242004
-      inSlope: -0.006124401
-      outSlope: -0.006124401
+      time: 0.4663689
+      value: 0.13894814
+      inSlope: 0.2414374
+      outSlope: 0.2414374
       tangentMode: 0
       weightedMode: 0
       inWeight: 0.33333334
+      outWeight: 1
+    - serializedVersion: 3
+      time: 0.5087114
+      value: 0.29367962
+      inSlope: 1.9937904
+      outSlope: 1.9937904
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.108809315
       outWeight: 0.33333334
     - serializedVersion: 3
-      time: 0.63
-      value: 0.10000704
+      time: 0.68029296
+      value: 0.1141672
       inSlope: 0.023688896
       outSlope: 0.023688896
       tangentMode: 0
