@@ -81,6 +81,7 @@
     <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Assets\Voxels\todo.txt" />
     <None Include="Assets\One Million Voxels\Shaders\VoxelShader.shader" />
   </ItemGroup>
   <ItemGroup>

@@ -1,0 +1,1 @@
+I think why some of the chunk faces are still there even though they are hidden in the world is because when it checks for chunk neighbors, the next chunk along hasn't been generated yet, so the chunk checking for neighbors registers that as not a chunk there, and therefore keeps it's face there.
