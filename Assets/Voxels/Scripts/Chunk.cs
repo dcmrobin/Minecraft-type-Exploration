@@ -73,10 +73,22 @@ public class Chunk : MonoBehaviour
             }
         }
 
+        CheckGrassBlocksJob checkGrassBlocksJob = new CheckGrassBlocksJob
+        {
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            voxelsData = generateVoxelsJob.voxelsData,
+            updatedVoxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
+        };
+
         JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         handle.Complete();
 
+        JobHandle checkGrassBlocksHandle = checkGrassBlocksJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+        checkGrassBlocksHandle.Complete();
+
         InitializeVoxels(generateVoxelsJob.voxelsData);
+        InitializeVoxels(checkGrassBlocksJob.updatedVoxelsData);
 
         // Dispose of NativeArrays
         generateVoxelsJob.baseNoiseMap.Dispose();
@@ -85,6 +97,7 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.mountainCurveValues.Dispose();
         generateVoxelsJob.biomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
+        checkGrassBlocksJob.updatedVoxelsData.Dispose();
     }
 
     public void GenerateMesh()
@@ -430,6 +443,45 @@ public class Chunk : MonoBehaviour
 
             Vector3 voxelPosition = new Vector3(x, y, z);
             voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
+        }
+    }
+
+    public struct CheckGrassBlocksJob : IJobParallelFor
+    {
+        public int chunkSize;
+        public int chunkHeight;
+
+        [ReadOnly]
+        public NativeArray<Voxel> voxelsData;
+
+        public NativeArray<Voxel> updatedVoxelsData;
+
+        public void Execute(int index)
+        {
+            int x = index / (chunkSize * chunkHeight);
+            int y = (index / chunkSize) % chunkHeight;
+            int z = index % chunkSize;
+
+            Voxel voxel = voxelsData[index];
+            
+            if (voxel.type == Voxel.VoxelType.Grass)
+            {
+                // Check if there is a voxel directly above this one
+                if (y < chunkHeight - 1)
+                {
+                    int aboveIndex = index + chunkSize; // Move one level up
+                    Voxel aboveVoxel = voxelsData[aboveIndex];
+
+                    // If the voxel above is not air, convert this voxel to dirt
+                    if (aboveVoxel.type != Voxel.VoxelType.Air)
+                    {
+                        voxel.type = Voxel.VoxelType.Dirt;
+                        voxel.isActive = true;
+                    }
+                }
+            }
+
+            updatedVoxelsData[index] = voxel;
         }
     }
 }
