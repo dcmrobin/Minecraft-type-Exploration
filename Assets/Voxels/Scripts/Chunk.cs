@@ -18,6 +18,11 @@ public class Chunk : MonoBehaviour
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
+    private Vector3 pos;
+
+    private void Start() {
+        pos = transform.position;
+    }
 
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
     {
@@ -94,8 +99,6 @@ public class Chunk : MonoBehaviour
 
         JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         fixGrassHandle.Complete();
-
-        Vector3 pos = transform.position;
 
         await Task.Run(() =>
         {
@@ -177,7 +180,7 @@ public class Chunk : MonoBehaviour
         voxels = new Voxel[size, height, size];
 
         // Call GenerateVoxelData asynchronously
-        await GenerateVoxelDataAsync(transform.position);
+        await GenerateVoxelDataAsync(pos);
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -239,7 +242,7 @@ public class Chunk : MonoBehaviour
     private bool IsFaceVisible(int x, int y, int z)
     {
         // Convert local chunk coordinates to global coordinates
-        Vector3 globalPos = transform.position + new Vector3(x, y, z);
+        Vector3 globalPos = pos + new Vector3(x, y, z);
 
         // Check if the neighboring voxel is inactive or out of bounds in the current chunk
         // and also if it's inactive or out of bounds in the world (neighboring chunks)
