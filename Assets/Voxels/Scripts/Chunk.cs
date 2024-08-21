@@ -427,11 +427,8 @@ public class Chunk : MonoBehaviour
             calculatedHeight *= biomeCurve;
 
             Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
-            if (y <= calculatedHeight - 1 && y >= calculatedHeight - 2)
-            {
-                type = Voxel.VoxelType.Dirt;
-            }
-            else if (y < calculatedHeight - 2)
+
+            if (y < calculatedHeight - 2)
             {
                 type = Voxel.VoxelType.Stone;
             }
