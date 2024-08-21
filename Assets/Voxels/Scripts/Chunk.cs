@@ -73,7 +73,7 @@ public class Chunk : MonoBehaviour
             }
         }
 
-        BlockUpdateJob blockUpdateJob = new BlockUpdateJob
+        FixGrassJob fixGrassJob = new FixGrassJob
         {
             chunkSize = chunkSize,
             chunkHeight = chunkHeight,
@@ -84,11 +84,11 @@ public class Chunk : MonoBehaviour
         JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         handle.Complete();
 
-        JobHandle blockUpdateHandle = blockUpdateJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-        blockUpdateHandle.Complete();
+        JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+        fixGrassHandle.Complete();
 
         InitializeVoxels(generateVoxelsJob.voxelsData);
-        InitializeVoxels(blockUpdateJob.updatedVoxelsData);
+        InitializeVoxels(fixGrassJob.updatedVoxelsData);
 
         // Dispose of NativeArrays
         generateVoxelsJob.baseNoiseMap.Dispose();
@@ -97,7 +97,7 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.mountainCurveValues.Dispose();
         generateVoxelsJob.biomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
-        blockUpdateJob.updatedVoxelsData.Dispose();
+        fixGrassJob.updatedVoxelsData.Dispose();
     }
 
     public void GenerateMesh()
@@ -384,101 +384,6 @@ public class Chunk : MonoBehaviour
             vertices.Clear();
             triangles.Clear();
             uvs.Clear();
-        }
-    }
-
-    public struct GenerateVoxelsJob : IJobParallelFor
-    {
-        public int chunkSize;
-        public int chunkHeight;
-        public Vector3 chunkWorldPosition;
-        public float maxHeight;
-
-        [ReadOnly]
-        public NativeArray<float> baseNoiseMap;
-        [ReadOnly]
-        public NativeArray<float> lod1Map;
-        [ReadOnly]
-        public NativeArray<float> overhangsMap;
-        [ReadOnly]
-        public NativeArray<float> mountainCurveValues;
-        [ReadOnly]
-        public NativeArray<float> biomeCurveValues;
-
-        public NativeArray<Voxel> voxelsData;
-
-        public void Execute(int index)
-        {
-            int x = index / (chunkSize * chunkHeight);
-            int y = (index / chunkSize) % chunkHeight;
-            int z = index % chunkSize;
-
-            Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
-            int mapIndex = x * chunkSize + z;
-
-            float baseNoise = baseNoiseMap[mapIndex];
-            float lod1 = lod1Map[mapIndex];
-            float overhangsNoise = overhangsMap[mapIndex];
-            float mountainCurve = mountainCurveValues[mapIndex];
-            float biomeCurve = biomeCurveValues[mapIndex];
-
-            float normalizedNoiseValue = (mountainCurve - overhangsNoise + lod1) * 400;
-            float calculatedHeight = normalizedNoiseValue * maxHeight;
-            calculatedHeight *= biomeCurve;
-
-            Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
-
-            if (y < calculatedHeight - 2)
-            {
-                type = Voxel.VoxelType.Stone;
-            }
-
-            if (type == Voxel.VoxelType.Air && y < 3)
-            {
-                type = Voxel.VoxelType.Grass;
-            }
-
-            Vector3 voxelPosition = new Vector3(x, y, z);
-            voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
-        }
-    }
-
-    public struct BlockUpdateJob : IJobParallelFor
-    {
-        public int chunkSize;
-        public int chunkHeight;
-
-        [ReadOnly]
-        public NativeArray<Voxel> voxelsData;
-
-        public NativeArray<Voxel> updatedVoxelsData;
-
-        public void Execute(int index)
-        {
-            int x = index / (chunkSize * chunkHeight);
-            int y = (index / chunkSize) % chunkHeight;
-            int z = index % chunkSize;
-
-            Voxel voxel = voxelsData[index];
-            
-            if (voxel.type == Voxel.VoxelType.Grass)
-            {
-                // Check if there is a voxel directly above this one
-                if (y < chunkHeight - 1)
-                {
-                    int aboveIndex = index + chunkSize; // Move one level up
-                    Voxel aboveVoxel = voxelsData[aboveIndex];
-
-                    // If the voxel above is not air, convert this voxel to dirt
-                    if (aboveVoxel.type != Voxel.VoxelType.Air)
-                    {
-                        voxel.type = Voxel.VoxelType.Dirt;
-                        voxel.isActive = true;
-                    }
-                }
-            }
-
-            updatedVoxelsData[index] = voxel;
         }
     }
 }

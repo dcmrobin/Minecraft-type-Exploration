@@ -66,6 +66,7 @@
   <ItemGroup>
     <Compile Include="Assets\Voxel DAG\Scripts\VoxelNode.cs" />
     <Compile Include="Assets\One Million Voxels\Scripts\CubeRenderer.cs" />
+    <Compile Include="Assets\Voxels\Scripts\FixGrassJob.cs" />
     <Compile Include="Assets\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
     <Compile Include="Assets\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
     <Compile Include="Assets\Voxels\Scripts\GlobalNoise.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="Assets\Voxel DAG\Scripts\DAGMain.cs" />
     <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
+    <Compile Include="Assets\Voxels\Scripts\GenerateVoxelsJob.cs" />
     <Compile Include="Assets\Voxels\Scripts\Noise.cs" />
     <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
   </ItemGroup>
