@@ -3,7 +3,6 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
 using SimplexNoise;
-using System.Threading.Tasks;
 
 public class Chunk : MonoBehaviour
 {
@@ -18,13 +17,8 @@ public class Chunk : MonoBehaviour
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
-    private Vector3 pos;
 
-    private void Start() {
-        pos = transform.position;
-    }
-
-    private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
+    private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
         // Precompute noise values and curve evaluations
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
@@ -34,25 +28,21 @@ public class Chunk : MonoBehaviour
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] biomeCurveValues = new float[chunkSize, chunkSize];
 
-        // Use Task.Run to run CPU-bound work on a background thread
-        await Task.Run(() =>
+        for (int x = 0; x < chunkSize; x++)
         {
-            for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
             {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
+                Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
 
-                    baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
-                    lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                    overhangsMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
-                    biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
+                baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
+                lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
+                overhangsMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
+                biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
-                    mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                    biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
-                }
+                mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
+                biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
             }
-        });
+        }
 
         // Schedule the job
         GenerateVoxelsJob generateVoxelsJob = new GenerateVoxelsJob
@@ -97,47 +87,8 @@ public class Chunk : MonoBehaviour
         JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         fixGrassHandle.Complete();
 
-        await Task.Run(() =>
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int y = 0; y < chunkHeight; y++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                        Voxel voxel = generateVoxelsJob.voxelsData[index];
-
-                        // Use world coordinates for noise sampling
-                        Vector3 worldPos = pos + new Vector3(x, y, z);
-
-                        // Now the voxel type is already determined by the job
-                        voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
-                    }
-                }
-            }
-        });
-
-        await Task.Run(() =>
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int y = 0; y < chunkHeight; y++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                        Voxel voxel = fixGrassJob.updatedVoxelsData[index];
-
-                        // Use world coordinates for noise sampling
-                        Vector3 worldPos = pos + new Vector3(x, y, z);
-
-                        // Now the voxel type is already determined by the job
-                        voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
-                    }
-                }
-            }
-        });
+        InitializeVoxels(generateVoxelsJob.voxelsData);
+        InitializeVoxels(fixGrassJob.updatedVoxelsData);
 
         // Dispose of NativeArrays
         generateVoxelsJob.baseNoiseMap.Dispose();
@@ -168,27 +119,46 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public async Task Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
-    {
+    public void Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve) {
         this.chunkSize = size;
         this.chunkHeight = height;
         this.mountainsCurve = mountainsCurve;
         this.mountainBiomeCurve = mountainBiomeCurve;
         voxels = new Voxel[size, height, size];
-
-        // Call GenerateVoxelData asynchronously
-        await GenerateVoxelDataAsync(pos);
+        //InitializeVoxels(); <-- Remove
+        GenerateVoxelData(transform.position); // <-- Add this
 
         meshFilter = GetComponent<MeshFilter>();
-        if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
+        if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>();} 
 
         meshRenderer = GetComponent<MeshRenderer>();
-        if (meshRenderer == null) { meshRenderer = gameObject.AddComponent<MeshRenderer>(); }
+        if (meshRenderer == null) { meshRenderer = gameObject.AddComponent<MeshRenderer>();}
 
         meshCollider = GetComponent<MeshCollider>();
-        if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
+        if (meshCollider == null) {meshCollider = gameObject.AddComponent<MeshCollider>();}
 
         GenerateMesh(); // Call after ensuring all necessary components and data are set
+    }
+
+    private void InitializeVoxels(NativeArray<Voxel> voxelsData)
+    {
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    int index = x * chunkSize * chunkHeight + y * chunkSize + z;
+                    Voxel voxel = voxelsData[index];
+
+                    // Use world coordinates for noise sampling
+                    Vector3 worldPos = transform.position + new Vector3(x, y, z);
+
+                    // Now the voxel type is already determined by the job
+                    voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
+                }
+            }
+        }
     }
 
     // New method to iterate through the voxel data
@@ -239,7 +209,7 @@ public class Chunk : MonoBehaviour
     private bool IsFaceVisible(int x, int y, int z)
     {
         // Convert local chunk coordinates to global coordinates
-        Vector3 globalPos = pos + new Vector3(x, y, z);
+        Vector3 globalPos = transform.position + new Vector3(x, y, z);
 
         // Check if the neighboring voxel is inactive or out of bounds in the current chunk
         // and also if it's inactive or out of bounds in the world (neighboring chunks)
