@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public class World : MonoBehaviour
 {
@@ -57,11 +58,11 @@ public class World : MonoBehaviour
         ChunkPoolManager.Instance.PopulateInitialPool();
     }
 
-    void Update()
+    async void Update()
     {
         playerPosition = playerController.getPlayerPosition();
         UpdateChunks(playerPosition);
-        ProcessChunkQueues();
+        await ProcessChunkQueues();
     }
 
     void UpdateChunks(Vector3 playerPosition)
@@ -102,7 +103,7 @@ public class World : MonoBehaviour
         }
     }
 
-    void ProcessChunkQueues()
+    private async Task ProcessChunkQueues()
     {
         frameCounter++;
         unloadFrameCounter++;
@@ -113,7 +114,7 @@ public class World : MonoBehaviour
             for (int i = 0; i < chunksPerFrame && chunkLoadQueue.Count > 0; i++)
             {
                 Vector3 chunkPosition = chunkLoadQueue.Dequeue();
-                LoadChunk(chunkPosition);
+                await LoadChunk(chunkPosition);
             }
         }
 
@@ -128,14 +129,14 @@ public class World : MonoBehaviour
         }
     }
 
-    void LoadChunk(Vector3 chunkPosition)
+    private async Task LoadChunk(Vector3 chunkPosition)
     {
         if (!chunks.ContainsKey(chunkPosition))
         {
             Chunk chunkObject = ChunkPoolManager.Instance.GetChunk();
             chunkObject.transform.position = chunkPosition;
             chunkObject.transform.parent = this.transform;
-            chunkObject.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
+            await chunkObject.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
             chunks.Add(chunkPosition, chunkObject);
             chunkObject.gameObject.SetActive(true);
         }
