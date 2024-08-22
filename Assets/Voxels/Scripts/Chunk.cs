@@ -70,21 +70,18 @@ public class Chunk : MonoBehaviour
         };
 
         // Copy data to NativeArrays
-        await Task.Run(() =>
+        for (int x = 0; x < chunkSize; x++)
         {
-            for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
             {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    int index = x * chunkSize + z;
-                    generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
-                    generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
-                    generateVoxelsJob.overhangsMap[index] = overhangsMap[x, z];
-                    generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
-                    generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
-                }
+                int index = x * chunkSize + z;
+                generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
+                generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
+                generateVoxelsJob.overhangsMap[index] = overhangsMap[x, z];
+                generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
+                generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
             }
-        });
+        }
 
         FixGrassJob fixGrassJob = new FixGrassJob
         {
