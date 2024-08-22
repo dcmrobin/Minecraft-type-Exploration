@@ -13,7 +13,7 @@ public struct GenerateVoxelsJob : IJobParallelFor
     [ReadOnly]
     public NativeArray<float> lod1Map;
     [ReadOnly]
-    public NativeArray<float> overhangsMap;
+    public NativeArray<float> simplexMap;
     [ReadOnly]
     public NativeArray<float> mountainCurveValues;
     [ReadOnly]
@@ -28,10 +28,10 @@ public struct GenerateVoxelsJob : IJobParallelFor
         int mapIndex = x * chunkSize + z;
         float baseNoise = baseNoiseMap[mapIndex];
         float lod1 = lod1Map[mapIndex];
-        float overhangsNoise = overhangsMap[mapIndex];
+        float simplexNoise = simplexMap[mapIndex];
         float mountainCurve = mountainCurveValues[mapIndex];
         float biomeCurve = biomeCurveValues[mapIndex];
-        float normalizedNoiseValue = (mountainCurve - overhangsNoise + lod1) * 400;
+        float normalizedNoiseValue = (mountainCurve - simplexNoise + lod1) * 400;
         float calculatedHeight = normalizedNoiseValue * maxHeight;
         calculatedHeight *= biomeCurve;
         Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;

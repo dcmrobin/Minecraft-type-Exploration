@@ -24,7 +24,7 @@ public class Chunk : MonoBehaviour
         // Precompute noise values and curve evaluations
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
         float[,] lod1Map = new float[chunkSize, chunkSize];
-        float[,] overhangsMap = new float[chunkSize, chunkSize];
+        float[,] simplexMap = new float[chunkSize, chunkSize];
         float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] biomeCurveValues = new float[chunkSize, chunkSize];
@@ -40,7 +40,7 @@ public class Chunk : MonoBehaviour
 
                     baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
                     lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                    overhangsMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
+                    simplexMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
                     biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
                     mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
@@ -58,7 +58,7 @@ public class Chunk : MonoBehaviour
             maxHeight = World.Instance.maxHeight,
             baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
             lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
-            overhangsMap = new NativeArray<float>(overhangsMap.Length, Allocator.TempJob),
+            simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
             mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
             biomeCurveValues = new NativeArray<float>(biomeCurveValues.Length, Allocator.TempJob),
             voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
@@ -74,7 +74,7 @@ public class Chunk : MonoBehaviour
                     int index = x * chunkSize + z;
                     generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
                     generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
-                    generateVoxelsJob.overhangsMap[index] = overhangsMap[x, z];
+                    generateVoxelsJob.simplexMap[index] = simplexMap[x, z];
                     generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
                     generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
                 }
@@ -142,7 +142,7 @@ public class Chunk : MonoBehaviour
         // Dispose of NativeArrays
         generateVoxelsJob.baseNoiseMap.Dispose();
         generateVoxelsJob.lod1Map.Dispose();
-        generateVoxelsJob.overhangsMap.Dispose();
+        generateVoxelsJob.simplexMap.Dispose();
         generateVoxelsJob.mountainCurveValues.Dispose();
         generateVoxelsJob.biomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
