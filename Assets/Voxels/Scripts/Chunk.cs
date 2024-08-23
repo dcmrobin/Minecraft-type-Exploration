@@ -89,12 +89,7 @@ public class Chunk : MonoBehaviour
 
             JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
             fixGrassHandle.Complete();
-        });
 
-        Vector3 pos = transform.position;
-
-        await Task.Run(() =>
-        {
             for (int x = 0; x < chunkSize; x++)
             {
                 for (int y = 0; y < chunkHeight; y++)
@@ -109,27 +104,12 @@ public class Chunk : MonoBehaviour
 
                         // Now the voxel type is already determined by the job
                         voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
-                    }
-                }
-            }
-        });
 
-        await Task.Run(() =>
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int y = 0; y < chunkHeight; y++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                        Voxel voxel = fixGrassJob.updatedVoxelsData[index];
 
-                        // Use world coordinates for noise sampling
-                        Vector3 worldPos = pos + new Vector3(x, y, z);
+                        Voxel newVoxel = fixGrassJob.updatedVoxelsData[index];
 
                         // Now the voxel type is already determined by the job
-                        voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
+                        voxels[x, y, z] = new Voxel(worldPos, newVoxel.type, newVoxel.isActive);
                     }
                 }
             }
