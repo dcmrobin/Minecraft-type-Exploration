@@ -83,13 +83,13 @@ public class Chunk : MonoBehaviour
                     generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
                 }
             }
+
+            JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+            handle.Complete();
+
+            JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
+            fixGrassHandle.Complete();
         });
-
-        JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-        handle.Complete();
-
-        JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-        fixGrassHandle.Complete();
 
         Vector3 pos = transform.position;
 
