@@ -36,6 +36,28 @@ public class Chunk : MonoBehaviour
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] biomeCurveValues = new float[chunkSize, chunkSize];
 
+        GenerateVoxelsJob generateVoxelsJob = new GenerateVoxelsJob
+        {
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            chunkWorldPosition = chunkWorldPosition,
+            maxHeight = World.Instance.maxHeight,
+            baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
+            lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
+            simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
+            mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
+            biomeCurveValues = new NativeArray<float>(biomeCurveValues.Length, Allocator.TempJob),
+            voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
+        };
+
+        FixGrassJob fixGrassJob = new FixGrassJob
+        {
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            voxelsData = generateVoxelsJob.voxelsData,
+            updatedVoxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
+        };
+
         // Use Task.Run to run CPU-bound work on a background thread
         await Task.Run(() =>
         {
@@ -52,32 +74,7 @@ public class Chunk : MonoBehaviour
 
                     mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
                     biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
-                }
-            }
-        });
 
-        // Schedule the job
-        GenerateVoxelsJob generateVoxelsJob = new GenerateVoxelsJob
-        {
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            chunkWorldPosition = chunkWorldPosition,
-            maxHeight = World.Instance.maxHeight,
-            baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
-            lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
-            simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
-            mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
-            biomeCurveValues = new NativeArray<float>(biomeCurveValues.Length, Allocator.TempJob),
-            voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
-        };
-
-        // Copy data to NativeArrays
-        await Task.Run(() =>
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
                     int index = x * chunkSize + z;
                     generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
                     generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
@@ -87,14 +84,6 @@ public class Chunk : MonoBehaviour
                 }
             }
         });
-
-        FixGrassJob fixGrassJob = new FixGrassJob
-        {
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            voxelsData = generateVoxelsJob.voxelsData,
-            updatedVoxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
-        };
 
         JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
         handle.Complete();
