@@ -34,6 +34,7 @@ public struct GenerateVoxelsJob : IJobParallelFor
         float normalizedNoiseValue = (mountainCurve - simplexNoise + lod1) * 400;
         float calculatedHeight = normalizedNoiseValue * maxHeight;
         calculatedHeight *= biomeCurve;
+        calculatedHeight += 150;
         Voxel.VoxelType type = (y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
         if (y < calculatedHeight - 2)
         {
