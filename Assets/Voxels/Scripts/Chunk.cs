@@ -158,7 +158,7 @@ public class Chunk : MonoBehaviour
 
     public async Task GenerateMesh()
     {
-        await Task.Run(() => {
+        await Task.Run(async () => {
             for (int x = 0; x < chunkSize; x++)
             {
                 for (int y = 0; y < chunkHeight; y++)
@@ -188,7 +188,7 @@ public class Chunk : MonoBehaviour
                             for (int i = 0; i < facesVisible.Length; i++)
                             {
                                 if (facesVisible[i])
-                                    AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
+                                    await AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
                             }
                         }
                     }
@@ -261,9 +261,6 @@ public class Chunk : MonoBehaviour
             return true;
         }
 
-        // Convert the global position to the local position within the neighboring chunk
-        //Vector3 localPos = neighborChunk.transform.InverseTransformPoint(globalPos);//                                         -here-
-
         // If the voxel at this local position is inactive, the face should be visible (not hidden)
         return !neighborChunk.IsVoxelActiveAt(neighborChunk.localPos);
     }
@@ -286,7 +283,7 @@ public class Chunk : MonoBehaviour
         return false;
     }
 
-    private void AddFaceData(int x, int y, int z, int faceIndex)
+    private async Task AddFaceData(int x, int y, int z, int faceIndex)
     {
         Voxel voxel = voxels[x, y, z];
         Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
@@ -345,7 +342,19 @@ public class Chunk : MonoBehaviour
             uvs.AddRange(faceUVs);
         }
 
-        AddTriangleIndices();
+        await Task.Run(() => {
+            int vertCount = vertices.Count;
+
+            // First triangle
+            triangles.Add(vertCount - 4);
+            triangles.Add(vertCount - 3);
+            triangles.Add(vertCount - 2);
+
+            // Second triangle
+            triangles.Add(vertCount - 4);
+            triangles.Add(vertCount - 2);
+            triangles.Add(vertCount - 1);
+        });
     }
 
     private Vector2[] GetFaceUVs(Voxel.VoxelType type, int faceIndex)
@@ -385,21 +394,6 @@ public class Chunk : MonoBehaviour
             default:
                 return Vector2.zero;
         }
-    }
-
-    private void AddTriangleIndices()
-    {
-        int vertCount = vertices.Count;
-
-        // First triangle
-        triangles.Add(vertCount - 4);
-        triangles.Add(vertCount - 3);
-        triangles.Add(vertCount - 2);
-
-        // Second triangle
-        triangles.Add(vertCount - 4);
-        triangles.Add(vertCount - 2);
-        triangles.Add(vertCount - 1);
     }
 
     public void ResetChunk() {
