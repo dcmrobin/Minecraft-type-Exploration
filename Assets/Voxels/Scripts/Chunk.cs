@@ -19,9 +19,11 @@ public class Chunk : MonoBehaviour
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
     private Vector3 pos;
+    private Vector3 localPos;
 
     private void Start() {
         pos = transform.position;
+        localPos = transform.InverseTransformPoint(pos);
     }
 
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
@@ -163,7 +165,32 @@ public class Chunk : MonoBehaviour
                 {
                     for (int z = 0; z < chunkSize; z++)
                     {
-                        ProcessVoxel(x, y, z);
+                        // Check if the voxels array is initialized and the indices are within bounds
+                        if (voxels == null || x < 0 || x >= voxels.GetLength(0) || 
+                            y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
+                        {
+                            return; // Skip processing if the array is not initialized or indices are out of bounds
+                        } 
+                        Voxel voxel = voxels[x, y, z];
+                        if (voxel.isActive)
+                        {
+                            // Check each face of the voxel for visibility
+                            bool[] facesVisible = new bool[6];
+
+                            // Check visibility for each face
+                            facesVisible[0] = IsFaceVisible(x, y + 1, z); // Top
+                            facesVisible[1] = IsFaceVisible(x, y - 1, z); // Bottom
+                            facesVisible[2] = IsFaceVisible(x - 1, y, z); // Left
+                            facesVisible[3] = IsFaceVisible(x + 1, y, z); // Right
+                            facesVisible[4] = IsFaceVisible(x, y, z + 1); // Front
+                            facesVisible[5] = IsFaceVisible(x, y, z - 1); // Back
+                            
+                            for (int i = 0; i < facesVisible.Length; i++)
+                            {
+                                if (facesVisible[i])
+                                    AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
+                            }
+                        }
                     }
                 }
             }
@@ -207,36 +234,6 @@ public class Chunk : MonoBehaviour
         await GenerateMesh(); // Call after ensuring all necessary components and data are set
     }
 
-    private void ProcessVoxel(int x, int y, int z)
-    {
-        // Check if the voxels array is initialized and the indices are within bounds
-        if (voxels == null || x < 0 || x >= voxels.GetLength(0) || 
-            y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
-        {
-            return; // Skip processing if the array is not initialized or indices are out of bounds
-        } 
-        Voxel voxel = voxels[x, y, z];
-        if (voxel.isActive)
-        {
-            // Check each face of the voxel for visibility
-            bool[] facesVisible = new bool[6];
-
-            // Check visibility for each face
-            facesVisible[0] = IsFaceVisible(x, y + 1, z); // Top
-            facesVisible[1] = IsFaceVisible(x, y - 1, z); // Bottom
-            facesVisible[2] = IsFaceVisible(x - 1, y, z); // Left
-            facesVisible[3] = IsFaceVisible(x + 1, y, z); // Right
-            facesVisible[4] = IsFaceVisible(x, y, z + 1); // Front
-            facesVisible[5] = IsFaceVisible(x, y, z - 1); // Back
-            
-            for (int i = 0; i < facesVisible.Length; i++)
-            {
-                if (facesVisible[i])
-                    AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
-            }
-        }
-    }
-
     private bool IsFaceVisible(int x, int y, int z)
     {
         // Convert local chunk coordinates to global coordinates
@@ -265,10 +262,10 @@ public class Chunk : MonoBehaviour
         }
 
         // Convert the global position to the local position within the neighboring chunk
-        Vector3 localPos = neighborChunk.transform.InverseTransformPoint(globalPos);
+        //Vector3 localPos = neighborChunk.transform.InverseTransformPoint(globalPos);//                                         -here-
 
         // If the voxel at this local position is inactive, the face should be visible (not hidden)
-        return !neighborChunk.IsVoxelActiveAt(localPos);
+        return !neighborChunk.IsVoxelActiveAt(neighborChunk.localPos);
     }
 
     public bool IsVoxelActiveAt(Vector3 localPosition)
