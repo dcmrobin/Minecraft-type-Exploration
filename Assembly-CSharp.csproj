@@ -79,6 +79,7 @@
     <Compile Include="Assets\Voxels\Scripts\GenerateVoxelsJob.cs" />
     <Compile Include="Assets\Voxels\Scripts\Noise.cs" />
     <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
+    <Compile Include="Assets\Voxels\Scripts\FastNoiseLite.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Voxels\todo.txt" />
