@@ -22,13 +22,13 @@ public struct GenerateVoxelsJob : IJobParallelFor
     public void Execute(int index)
     {
         int x = index / (chunkSize * chunkHeight);
-        int y = index / chunkSize % chunkHeight;
+        int y = (index % (chunkSize * chunkHeight)) / chunkSize;
         int z = index % chunkSize;
         _ = chunkWorldPosition + new Vector3(x, y, z);
         int mapIndex = x * chunkSize + z;
         _ = baseNoiseMap[mapIndex];
         float lod1 = lod1Map[mapIndex];
-        float simplexNoise = simplexMap[mapIndex];
+        float simplexNoise = simplexMap[x * chunkSize * chunkHeight + y * chunkSize + z]; // 3D index calculation
         float mountainCurve = mountainCurveValues[mapIndex];
         float biomeCurve = biomeCurveValues[mapIndex];
         float normalizedNoiseValue = (mountainCurve - simplexNoise + lod1) * 400;

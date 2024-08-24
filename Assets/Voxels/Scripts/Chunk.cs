@@ -30,7 +30,7 @@ public class Chunk : MonoBehaviour
         // Precompute noise values and curve evaluations
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
         float[,] lod1Map = new float[chunkSize, chunkSize];
-        float[,] simplexMap = new float[chunkSize, chunkSize];
+        float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];  // 3D array for 3D noise
         float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] biomeCurveValues = new float[chunkSize, chunkSize];
@@ -68,18 +68,34 @@ public class Chunk : MonoBehaviour
 
                     baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
                     lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                    simplexMap[x, z] = Noise.CalcPixel3D((int)worldPos.x, 0, (int)worldPos.z, 0.025f) / 600;
                     biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
                     mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
                     biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
 
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        // Now using 3D noise for the simplex map
+                        simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
+                    }
+
                     int index = x * chunkSize + z;
                     generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
                     generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
-                    generateVoxelsJob.simplexMap[index] = simplexMap[x, z];
                     generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
                     generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
+                }
+            }
+
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int y = 0; y < chunkHeight; y++)
+                {
+                    for (int z = 0; z < chunkSize; z++)
+                    {
+                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
+                        generateVoxelsJob.simplexMap[index] = simplexMap[x, y, z]; // Assign 3D noise
+                    }
                 }
             }
 
@@ -98,16 +114,11 @@ public class Chunk : MonoBehaviour
                         int index = x * chunkSize * chunkHeight + y * chunkSize + z;
                         Voxel voxel = generateVoxelsJob.voxelsData[index];
 
-                        // Use world coordinates for noise sampling
                         Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
 
-                        // Now the voxel type is already determined by the job
                         voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
 
-
                         Voxel newVoxel = fixGrassJob.updatedVoxelsData[index];
-
-                        // Now the voxel type is already determined by the job
                         voxels[x, y, z] = new Voxel(worldPos, newVoxel.type, newVoxel.isActive);
                     }
                 }
