@@ -19,6 +19,12 @@ public class Chunk : MonoBehaviour
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
 
+    public Vector3 pos;
+
+    private void Start() {
+        pos = transform.position;
+    }
+
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
     {
         // Precompute noise values and curve evaluations
@@ -118,9 +124,20 @@ public class Chunk : MonoBehaviour
         fixGrassJob.updatedVoxelsData.Dispose();
     }
 
-    public void GenerateMesh()
+    public async Task GenerateMesh()
     {
-        IterateVoxels(); // Make sure this processes all voxels
+        await Task.Run(() => {
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int y = 0; y < chunkHeight; y++)
+                {
+                    for (int z = 0; z < chunkSize; z++)
+                    {
+                        ProcessVoxel(x, y, z);
+                    }
+                }
+            }
+        });
         if (vertices.Count > 0) {
             Mesh mesh = new Mesh();
             mesh.vertices = vertices.ToArray();
@@ -157,22 +174,7 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        GenerateMesh(); // Call after ensuring all necessary components and data are set
-    }
-
-    // New method to iterate through the voxel data
-    public void IterateVoxels()
-    {
-        for (int x = 0; x < chunkSize; x++)
-        {
-            for (int y = 0; y < chunkHeight; y++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    ProcessVoxel(x, y, z);
-                }
-            }
-        }
+        await GenerateMesh(); // Call after ensuring all necessary components and data are set
     }
 
     private void ProcessVoxel(int x, int y, int z)
@@ -208,11 +210,13 @@ public class Chunk : MonoBehaviour
     private bool IsFaceVisible(int x, int y, int z)
     {
         // Convert local chunk coordinates to global coordinates
-        Vector3 globalPos = transform.position + new Vector3(x, y, z);
+        Vector3 globalPos = pos + new Vector3(x, y, z);
 
         // Check if the neighboring voxel is inactive or out of bounds in the current chunk
         // and also if it's inactive or out of bounds in the world (neighboring chunks)
-        return IsVoxelHiddenInChunk(x, y, z) && IsVoxelHiddenInWorld(globalPos);
+        
+        //return IsVoxelHiddenInChunk(x, y, z) && IsVoxelHiddenInWorld(globalPos);// doesn't work because of multithreading not allowing use of get_transform
+        return IsVoxelHiddenInChunk(x, y, z);
     }
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
@@ -232,8 +236,8 @@ public class Chunk : MonoBehaviour
             return true;
         }
 
-        // Convert the global position to the local position within the neighboring chunk
-        Vector3 localPos = neighborChunk.transform.InverseTransformPoint(globalPos);
+
+        Vector3 localPos = neighborChunk.transform.InverseTransformPoint(globalPos);   // global pos is transform.position + new Vector3(x, y, z) not just transform.position
 
         // If the voxel at this local position is inactive, the face should be visible (not hidden)
         return !neighborChunk.IsVoxelActiveAt(localPos);
