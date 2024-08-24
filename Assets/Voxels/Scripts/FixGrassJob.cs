@@ -10,9 +10,9 @@ public struct FixGrassJob : IJobParallelFor
     public NativeArray<Voxel> updatedVoxelsData;
     public void Execute(int index)
     {
-        int x = index / (chunkSize * chunkHeight);
+        _ = index / (chunkSize * chunkHeight);
         int y = (index / chunkSize) % chunkHeight;
-        int z = index % chunkSize;
+        _ = index % chunkSize;
         Voxel voxel = voxelsData[index];
         
         if (voxel.type == Voxel.VoxelType.Grass)

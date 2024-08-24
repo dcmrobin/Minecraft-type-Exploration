@@ -4,7 +4,7 @@ using UnityEngine;
 public class ChunkPoolManager : MonoBehaviour {
     public static ChunkPoolManager Instance { get; private set; }
     
-    private Queue<Chunk> chunkPool = new Queue<Chunk>();
+    private readonly Queue<Chunk> chunkPool = new();
     public int initialPoolSize = 10; // Number of chunks to add to the pool at start
 
 
@@ -36,7 +36,7 @@ public class ChunkPoolManager : MonoBehaviour {
     }
 
     private Chunk InstantiateNewChunk() {
-        GameObject chunkObject = new GameObject("Chunk");
+        GameObject chunkObject = new("Chunk");
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
         return newChunk;
     }

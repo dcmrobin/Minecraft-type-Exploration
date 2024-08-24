@@ -22,7 +22,7 @@ public class PlayerController : MonoBehaviour
         playerTransform = transform;
     }
 
-    public Vector3 getPlayerPosition()
+    public Vector3 GetPlayerPosition()
     {
         return playerTransform.position; // Return the current position of the player.
     }
@@ -50,34 +50,13 @@ public class PlayerController : MonoBehaviour
         float z = Input.GetAxis("Vertical");
 
         Vector3 flyDirection = cameraTransform.right * x + cameraTransform.up * y + cameraTransform.forward * z;
-        transform.position += flyDirection * flySpeed * Time.deltaTime;
+        transform.position += flySpeed * Time.deltaTime * flyDirection;
 
         /*if (Input.GetKeyDown(KeyCode.AltGr) || Input.GetKeyDown(KeyCode.LeftAlt))
         {
             isCursorLocked = !isCursorLocked;
             ToggleCursorState();
         }*/
-    }
-
-    void SetPlayerCenter() {
-        // Calculate the center position of the world
-        int worldCenterIndex = World.Instance.worldSize / 2;
-        float worldCenterX = worldCenterIndex * World.Instance.chunkSize;
-        float worldCenterZ = worldCenterIndex * World.Instance.chunkSize;
-
-        float noiseValue = GlobalNoise.GetGlobalNoiseValue(worldCenterX, worldCenterZ, World.Instance.noiseArray);
-
-        // Normalize noise value to [0, 1]
-        float normalizedNoiseValue = (noiseValue + 1) / 2;
-
-        // Calculate maxHeight
-        float maxHeight = normalizedNoiseValue * World.Instance.maxHeight;
-       
-        // Adjust the height for the player's position (assuming the player's capsule collider has a height of 2 units)
-        maxHeight += 1.5f; // This ensures that the base of the player is at the terrain height
-
-        // Set the player's position to be on top of the terrain
-        transform.position = new Vector3(worldCenterX, maxHeight, worldCenterZ);
     }
 
     void PlayerMove() {
@@ -91,7 +70,7 @@ public class PlayerController : MonoBehaviour
         move = cameraTransform.forward * move.z + cameraTransform.right * move.x;
         move.y = 0; // We do not want to move up/down by the camera's forward vector
 
-        characterController.Move(move * Time.deltaTime * speed);
+        _ = characterController.Move(speed * Time.deltaTime * move);
 
         // Changes the height position of the player..
         if (Input.GetButtonDown("Jump") && groundedPlayer)

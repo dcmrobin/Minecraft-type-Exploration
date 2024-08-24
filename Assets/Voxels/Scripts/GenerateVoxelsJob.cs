@@ -22,11 +22,11 @@ public struct GenerateVoxelsJob : IJobParallelFor
     public void Execute(int index)
     {
         int x = index / (chunkSize * chunkHeight);
-        int y = (index / chunkSize) % chunkHeight;
+        int y = index / chunkSize % chunkHeight;
         int z = index % chunkSize;
-        Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
+        _ = chunkWorldPosition + new Vector3(x, y, z);
         int mapIndex = x * chunkSize + z;
-        float baseNoise = baseNoiseMap[mapIndex];
+        _ = baseNoiseMap[mapIndex];
         float lod1 = lod1Map[mapIndex];
         float simplexNoise = simplexMap[mapIndex];
         float mountainCurve = mountainCurveValues[mapIndex];
@@ -44,7 +44,7 @@ public struct GenerateVoxelsJob : IJobParallelFor
         {
             type = Voxel.VoxelType.Grass;
         }
-        Vector3 voxelPosition = new Vector3(x, y, z);
+        Vector3 voxelPosition = new(x, y, z);
         voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
     }
 }

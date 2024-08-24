@@ -26,8 +26,8 @@ public class World : MonoBehaviour
     private int chunksMovedCount = 0;
     public int chunkUpdateThreshold = 5;
     private bool JustStarted = true;
-    private Queue<Vector3> chunkLoadQueue = new Queue<Vector3>();
-    private Queue<Vector3> chunkUnloadQueue = new Queue<Vector3>();
+    private readonly Queue<Vector3> chunkLoadQueue = new();
+    private readonly Queue<Vector3> chunkUnloadQueue = new();
 
     private const int chunksPerFrame = 1;
     private const int unloadInterval = 2;
@@ -60,14 +60,14 @@ public class World : MonoBehaviour
 
     async void Update()
     {
-        playerPosition = playerController.getPlayerPosition();
+        playerPosition = playerController.GetPlayerPosition();
         UpdateChunks(playerPosition);
         await ProcessChunkQueues();
     }
 
     void UpdateChunks(Vector3 playerPosition)
     {
-        Vector3Int playerChunkCoordinates = new Vector3Int(
+        Vector3Int playerChunkCoordinates = new(
             Mathf.FloorToInt(playerPosition.x / chunkSize),
             Mathf.FloorToInt(playerPosition.y / chunkHeight),
             Mathf.FloorToInt(playerPosition.z / chunkSize));
@@ -93,8 +93,8 @@ public class World : MonoBehaviour
         {
             for (int z = -loadRadius; z <= loadRadius; z++)
             {
-                Vector3Int chunkCoordinates = new Vector3Int(centerChunkCoordinates.x + x, 0, centerChunkCoordinates.z + z);
-                Vector3 chunkPosition = new Vector3(chunkCoordinates.x * chunkSize, 0, chunkCoordinates.z * chunkSize);
+                Vector3Int chunkCoordinates = new(centerChunkCoordinates.x + x, 0, centerChunkCoordinates.z + z);
+                Vector3 chunkPosition = new(chunkCoordinates.x * chunkSize, 0, chunkCoordinates.z * chunkSize);
                 if (!chunks.ContainsKey(chunkPosition))
                 {
                     chunkLoadQueue.Enqueue(chunkPosition);
@@ -153,10 +153,10 @@ public class World : MonoBehaviour
 
     void UnloadDistantChunks(Vector3Int centerChunkCoordinates)
     {
-        List<Vector3> chunksToUnload = new List<Vector3>();
+        _ = new List<Vector3>();
         foreach (var chunk in chunks)
         {
-            Vector3Int chunkCoord = new Vector3Int(
+            Vector3Int chunkCoord = new(
                 Mathf.FloorToInt(chunk.Key.x / chunkSize),
                 Mathf.FloorToInt(chunk.Key.y / chunkHeight),
                 Mathf.FloorToInt(chunk.Key.z / chunkSize));
@@ -170,7 +170,7 @@ public class World : MonoBehaviour
 
     public Chunk GetChunkAt(Vector3 globalPosition)
     {
-        Vector3Int chunkCoordinates = new Vector3Int(
+        Vector3Int chunkCoordinates = new(
             Mathf.FloorToInt(globalPosition.x / chunkSize) * chunkSize,
             Mathf.FloorToInt(globalPosition.y / chunkHeight) * chunkHeight,
             Mathf.FloorToInt(globalPosition.z / chunkSize) * chunkSize

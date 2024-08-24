@@ -657,9 +657,9 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  loadRadius: 5
-  unloadRadius: 7
-  chunkUpdateThreshold: 5
+  loadRadius: 6
+  unloadRadius: 8
+  chunkUpdateThreshold: 6
 --- !u!4 &1773224465
 Transform:
   m_ObjectHideFlags: 0
