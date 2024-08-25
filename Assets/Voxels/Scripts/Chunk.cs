@@ -20,9 +20,13 @@ public class Chunk : MonoBehaviour
     private MeshCollider meshCollider;
 
     public Vector3 pos;
+    private FastNoiseLite caveNoise = new();
 
     private void Start() {
         pos = transform.position;
+
+        caveNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        caveNoise.SetFrequency(0.2f);
     }
 
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
@@ -33,7 +37,7 @@ public class Chunk : MonoBehaviour
         float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];  // 3D array for 3D noise
         float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
-        float[,] biomeCurveValues = new float[chunkSize, chunkSize];
+        float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
 
         GenerateVoxelsJob generateVoxelsJob = new()
         {
@@ -45,7 +49,7 @@ public class Chunk : MonoBehaviour
             lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
             simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
             mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
-            biomeCurveValues = new NativeArray<float>(biomeCurveValues.Length, Allocator.TempJob),
+            mountainBiomeCurveValues = new NativeArray<float>(mountainBiomeCurveValues.Length, Allocator.TempJob),
             voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
         };
 
@@ -71,7 +75,7 @@ public class Chunk : MonoBehaviour
                     biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
 
                     mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                    biomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
+                    mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
 
                     for (int y = 0; y < chunkHeight; y++)
                     {
@@ -83,7 +87,7 @@ public class Chunk : MonoBehaviour
                     generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
                     generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
                     generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
-                    generateVoxelsJob.biomeCurveValues[index] = biomeCurveValues[x, z];
+                    generateVoxelsJob.mountainBiomeCurveValues[index] = mountainBiomeCurveValues[x, z];
                 }
             }
 
@@ -130,7 +134,7 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.lod1Map.Dispose();
         generateVoxelsJob.simplexMap.Dispose();
         generateVoxelsJob.mountainCurveValues.Dispose();
-        generateVoxelsJob.biomeCurveValues.Dispose();
+        generateVoxelsJob.mountainBiomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
         fixGrassJob.updatedVoxelsData.Dispose();
     }
