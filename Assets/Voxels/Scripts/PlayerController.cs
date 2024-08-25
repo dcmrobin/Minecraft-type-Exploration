@@ -3,7 +3,7 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     public float flySpeed = 12.0f; // Speed when flying
-    private bool isFlying = false; // Whether the player is currently flying
+    private bool isFlying = true; // Whether the player is currently flying
 
     public CharacterController characterController;
     public Transform cameraTransform;

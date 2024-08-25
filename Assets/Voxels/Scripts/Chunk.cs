@@ -26,7 +26,7 @@ public class Chunk : MonoBehaviour
         pos = transform.position;
 
         caveNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        caveNoise.SetFrequency(0.2f);
+        caveNoise.SetFrequency(0.05f);
     }
 
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
@@ -35,6 +35,7 @@ public class Chunk : MonoBehaviour
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
         float[,] lod1Map = new float[chunkSize, chunkSize];
         float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];  // 3D array for 3D noise
+        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
         float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
@@ -48,6 +49,7 @@ public class Chunk : MonoBehaviour
             baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
             lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
             simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
+            caveMap = new NativeArray<float>(caveMap.Length, Allocator.TempJob),
             mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
             mountainBiomeCurveValues = new NativeArray<float>(mountainBiomeCurveValues.Length, Allocator.TempJob),
             voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
@@ -81,6 +83,12 @@ public class Chunk : MonoBehaviour
                     {
                         // Now using 3D noise for the simplex map
                         simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
+                        caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
+
+                        int index3d = x * chunkSize * chunkHeight + y * chunkSize + z;
+
+                        generateVoxelsJob.simplexMap[index3d] = simplexMap[x, y, z]; // Assign 3D noise
+                        generateVoxelsJob.caveMap[index3d] = caveMap[x, y, z];
                     }
 
                     int index = x * chunkSize + z;
@@ -88,18 +96,6 @@ public class Chunk : MonoBehaviour
                     generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
                     generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
                     generateVoxelsJob.mountainBiomeCurveValues[index] = mountainBiomeCurveValues[x, z];
-                }
-            }
-
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int y = 0; y < chunkHeight; y++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                        generateVoxelsJob.simplexMap[index] = simplexMap[x, y, z]; // Assign 3D noise
-                    }
                 }
             }
 
@@ -133,6 +129,7 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.baseNoiseMap.Dispose();
         generateVoxelsJob.lod1Map.Dispose();
         generateVoxelsJob.simplexMap.Dispose();
+        generateVoxelsJob.caveMap.Dispose();
         generateVoxelsJob.mountainCurveValues.Dispose();
         generateVoxelsJob.mountainBiomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();

@@ -15,6 +15,8 @@ public struct GenerateVoxelsJob : IJobParallelFor
     [ReadOnly]
     public NativeArray<float> simplexMap;
     [ReadOnly]
+    public NativeArray<float> caveMap;
+    [ReadOnly]
     public NativeArray<float> mountainCurveValues;
     [ReadOnly]
     public NativeArray<float> mountainBiomeCurveValues;
@@ -29,6 +31,7 @@ public struct GenerateVoxelsJob : IJobParallelFor
         _ = baseNoiseMap[mapIndex];
         float lod1 = lod1Map[mapIndex];
         float simplexNoise = simplexMap[x * chunkSize * chunkHeight + y * chunkSize + z]; // 3D index calculation
+        float caveNoise = caveMap[x * chunkSize * chunkHeight + y * chunkSize + z];
         float mountainCurve = mountainCurveValues[mapIndex];
         float mountainBiomeCurve = mountainBiomeCurveValues[mapIndex];
         float normalizedNoiseValue = (mountainCurve - simplexNoise + lod1) * 400;
@@ -43,6 +46,11 @@ public struct GenerateVoxelsJob : IJobParallelFor
         if (type == Voxel.VoxelType.Air && y < 3)
         {
             type = Voxel.VoxelType.Grass;
+        }
+
+        if (caveNoise > (0.4 + (y/10)))
+        {
+            type = Voxel.VoxelType.Air;
         }
         Vector3 voxelPosition = new(x, y, z);
         voxelsData[index] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
