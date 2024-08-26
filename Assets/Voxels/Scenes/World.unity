@@ -514,7 +514,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 350
+  chunkHeight: 16
   noiseSeed: 1234
   maxHeight: 0.2
   noiseScale: 0.015
@@ -657,9 +657,9 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  loadRadius: 6
-  unloadRadius: 8
-  chunkUpdateThreshold: 6
+  loadRadius: 2
+  unloadRadius: 2
+  chunkUpdateThreshold: 1
 --- !u!4 &1773224465
 Transform:
   m_ObjectHideFlags: 0
