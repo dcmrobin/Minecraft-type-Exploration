@@ -48,7 +48,7 @@ public struct GenerateVoxelsJob : IJobParallelFor
             type = Voxel.VoxelType.Grass;
         }
 
-        if (caveNoise > (0.4 + (y/10)))
+        if (caveNoise > 0.45 && y <= (100 + (caveNoise * 20)) || caveNoise > 0.8 && y > (100 + (caveNoise * 20)))
         {
             type = Voxel.VoxelType.Air;
         }

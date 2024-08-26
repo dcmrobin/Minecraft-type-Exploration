@@ -26,7 +26,7 @@ public class Chunk : MonoBehaviour
         pos = transform.position;
 
         caveNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        caveNoise.SetFrequency(0.05f);
+        caveNoise.SetFrequency(0.02f);
     }
 
     private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
