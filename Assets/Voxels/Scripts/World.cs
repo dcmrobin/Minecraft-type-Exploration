@@ -98,17 +98,11 @@ public class World : MonoBehaviour
                         newChunk.transform.parent = this.transform;
                         chunks.Add(chunkPosition, newChunk);
 
-                        // Initialize the chunk asynchronously
-                        StartCoroutine(InitializeChunkAsync(newChunk, chunkPosition));
+                        newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
                     }
                 }
             }
         }
-    }
-
-    private IEnumerator InitializeChunkAsync(Chunk chunk, Vector3 chunkPosition)
-    {
-        yield return chunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkCoordinates)
