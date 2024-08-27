@@ -511,7 +511,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9d83323c8e55bd4ab73ccb51a0b669e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  worldSize: 10
+  worldSize: 5
   chunkSize: 16
   chunkHeight: 16
   noiseSeed: 1234
@@ -656,8 +656,8 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  loadRadius: 10
-  unloadRadius: 10
+  loadRadius: 5
+  unloadRadius: 5
   chunkUpdateThreshold: 1
 --- !u!4 &1773224465
 Transform:
