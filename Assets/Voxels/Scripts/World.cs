@@ -1,39 +1,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Threading.Tasks;
+using System.Collections;
 
 public class World : MonoBehaviour
 {
     public int worldSize = 5; 
     public int chunkSize = 16;
     public int chunkHeight = 16;
-    public int noiseSeed = 1234;
     public float maxHeight = 0.2f;
     public float noiseScale = 0.015f;
-    public float[,] noiseArray;
     public AnimationCurve mountainsCurve;
     public AnimationCurve mountainBiomeCurve;
-
-    private Dictionary<Vector3, Chunk> chunks;
-    public static World Instance { get; private set; }
-
     public Material VoxelMaterial;
-    PlayerController playerController;
-    Vector3 playerPosition;
-    private Vector3Int lastPlayerChunkCoordinates;
-    public int loadRadius = 5;
-    public int unloadRadius = 7;
-    private int chunksMovedCount = 0;
-    public int chunkUpdateThreshold = 5;
-    private bool JustStarted = true;
-    private readonly Queue<Vector3> chunkLoadQueue = new();
-    private readonly Queue<Vector3> chunkUnloadQueue = new();
+    public int renderDistance = 5; // The maximum distance from the player to keep chunks
+    public float[,] noiseArray;
 
-    private const int chunksPerFrame = 1;
-    private const int unloadInterval = 2;
-    private const int loadInterval = 1;
-    private int frameCounter = 0;
-    private int unloadFrameCounter = 0;
+    public static World Instance { get; private set; }
+    public int noiseSeed;
+
+    private Dictionary<Vector3, Chunk> chunks = new Dictionary<Vector3, Chunk>();
+    private PlayerController playerController;
+    private Vector3 playerPosition;
+    private Vector3Int lastPlayerChunkCoordinates;
 
     void Awake()
     {
@@ -50,49 +39,43 @@ public class World : MonoBehaviour
 
     void Start()
     {
-        noiseSeed = Random.Range(1, 1000000);
         playerController = FindObjectOfType<PlayerController>();
-        chunks = new Dictionary<Vector3, Chunk>();
-        GlobalNoise.SetSeed();
+        // Initialize chunk management
+        LoadInitialChunks();
     }
 
-    async void Update()
+    void Update()
     {
         playerPosition = playerController.transform.position;
-        UpdateChunks(playerPosition);
-        await ProcessChunkQueues();
+        Vector3Int playerChunkCoordinates = GetChunkCoordinates(playerPosition);
+
+        // Generate and unload chunks based on the renderDistance
+        UpdateChunks(playerChunkCoordinates);
     }
 
-    void UpdateChunks(Vector3 playerPosition)
+    private void LoadInitialChunks()
     {
-        Vector3Int playerChunkCoordinates = new(
-            Mathf.FloorToInt(playerPosition.x / chunkSize),
-            Mathf.FloorToInt(playerPosition.y / chunkHeight),
-            Mathf.FloorToInt(playerPosition.z / chunkSize)
-        );
+        Vector3Int playerChunkCoordinates = GetChunkCoordinates(playerPosition);
+        LoadChunksAround(playerChunkCoordinates);
+    }
 
+    private void UpdateChunks(Vector3Int playerChunkCoordinates)
+    {
         if (!playerChunkCoordinates.Equals(lastPlayerChunkCoordinates))
         {
-            if (chunksMovedCount >= chunkUpdateThreshold || JustStarted)
-            {
-                LoadChunksAround(playerChunkCoordinates);
-                UnloadDistantChunks(playerChunkCoordinates);
-                JustStarted = false;
-                chunksMovedCount = 0;
-            }
-
+            LoadChunksAround(playerChunkCoordinates);
+            UnloadDistantChunks(playerChunkCoordinates);
             lastPlayerChunkCoordinates = playerChunkCoordinates;
-            chunksMovedCount++;
         }
     }
 
-    void LoadChunksAround(Vector3Int centerChunkCoordinates)
+    private void LoadChunksAround(Vector3Int centerChunkCoordinates)
     {
-        for (int x = -loadRadius; x <= loadRadius; x++)
+        for (int x = -renderDistance; x <= renderDistance; x++)
         {
-            for (int y = -loadRadius; y <= loadRadius; y++)
+            for (int y = -renderDistance; y <= renderDistance; y++)
             {
-                for (int z = -loadRadius; z <= loadRadius; z++)
+                for (int z = -renderDistance; z <= renderDistance; z++)
                 {
                     Vector3Int chunkCoordinates = new(
                         centerChunkCoordinates.x + x,
@@ -108,58 +91,46 @@ public class World : MonoBehaviour
 
                     if (!chunks.ContainsKey(chunkPosition))
                     {
-                        chunkLoadQueue.Enqueue(chunkPosition);
+                        // Instantiate and initialize new chunk
+                        GameObject chunkObject = new GameObject("Chunk");
+                        Chunk newChunk = chunkObject.AddComponent<Chunk>();
+                        newChunk.transform.position = chunkPosition;
+                        newChunk.transform.parent = this.transform;
+                        chunks.Add(chunkPosition, newChunk);
+
+                        // Initialize the chunk asynchronously
+                        StartCoroutine(InitializeChunkAsync(newChunk, chunkPosition));
                     }
                 }
             }
         }
     }
 
-    private async Task ProcessChunkQueues()
+    private IEnumerator InitializeChunkAsync(Chunk chunk, Vector3 chunkPosition)
     {
-        frameCounter++;
-        unloadFrameCounter++;
+        yield return chunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
+    }
 
-        // Load chunks on the main thread, spread over multiple frames
-        if (frameCounter % loadInterval == 0 && chunkLoadQueue.Count > 0)
+    private void UnloadDistantChunks(Vector3Int centerChunkCoordinates)
+    {
+        List<Vector3> chunksToUnload = new List<Vector3>();
+
+        foreach (var chunk in chunks)
         {
-            for (int i = 0; i < chunksPerFrame && chunkLoadQueue.Count > 0; i++)
+            Vector3Int chunkCoord = GetChunkCoordinates(chunk.Key);
+            if (Vector3Int.Distance(chunkCoord, centerChunkCoordinates) > renderDistance)
             {
-                Vector3 chunkPosition = chunkLoadQueue.Dequeue();
-                await LoadChunk(chunkPosition);
+                chunksToUnload.Add(chunk.Key);
             }
         }
 
-        // Unload chunks on the main thread, spread over multiple frames
-        if (unloadFrameCounter % unloadInterval == 0 && chunkUnloadQueue.Count > 0)
+        foreach (var chunkPosition in chunksToUnload)
         {
-            for (int i = 0; i < chunksPerFrame && chunkUnloadQueue.Count > 0; i++)
-            {
-                Vector3 chunkPosition = chunkUnloadQueue.Dequeue();
-                UnloadChunk(chunkPosition);
-            }
+            UnloadChunk(chunkPosition);
         }
     }
 
-    private async Task LoadChunk(Vector3 chunkPosition)
-    {
-        if (!chunks.ContainsKey(chunkPosition))
-        {
-            // Instantiate new chunk directly
-            GameObject chunkObject = new GameObject("Chunk");
-            Chunk newChunk = chunkObject.AddComponent<Chunk>();
-            newChunk.transform.position = chunkPosition;
-            newChunk.transform.parent = this.transform;
-
-            // Initialize the chunk
-            await newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
-
-            // Add the chunk to the dictionary
-            chunks.Add(chunkPosition, newChunk);
-        }
-    }
-
-    void UnloadChunk(Vector3 chunkPosition)
+    private void UnloadChunk(Vector3 chunkPosition)
     {
         if (chunks.TryGetValue(chunkPosition, out Chunk chunkToUnload))
         {
@@ -168,32 +139,12 @@ public class World : MonoBehaviour
         }
     }
 
-    void UnloadDistantChunks(Vector3Int centerChunkCoordinates)
+    private Vector3Int GetChunkCoordinates(Vector3 position)
     {
-        foreach (var chunk in chunks)
-        {
-            Vector3Int chunkCoord = new(
-                Mathf.FloorToInt(chunk.Key.x / chunkSize),
-                Mathf.FloorToInt(chunk.Key.y / chunkHeight),
-                Mathf.FloorToInt(chunk.Key.z / chunkSize)
-            );
-
-            if (Vector3Int.Distance(chunkCoord, centerChunkCoordinates) > unloadRadius)
-            {
-                chunkUnloadQueue.Enqueue(chunk.Key);
-            }
-        }
-    }
-
-    public Chunk GetChunkAt(Vector3 globalPosition)
-    {
-        Vector3Int chunkCoordinates = new(
-            Mathf.FloorToInt(globalPosition.x / chunkSize) * chunkSize,
-            Mathf.FloorToInt(globalPosition.y / chunkHeight) * chunkHeight,
-            Mathf.FloorToInt(globalPosition.z / chunkSize) * chunkSize
+        return new Vector3Int(
+            Mathf.FloorToInt(position.x / chunkSize),
+            Mathf.FloorToInt(position.y / chunkHeight),
+            Mathf.FloorToInt(position.z / chunkSize)
         );
-
-        chunks.TryGetValue(chunkCoordinates, out Chunk chunk);
-        return chunk;
     }
 }
