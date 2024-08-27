@@ -513,7 +513,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 16
+  chunkHeight: 32
   noiseSeed: 1234
   maxHeight: 0.2
   noiseScale: 0.015
