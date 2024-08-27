@@ -1,24 +1,27 @@
 using Unity.Collections;
 using Unity.Jobs;
+using UnityEngine;
 
 public struct FixGrassJob : IJobParallelFor
 {
     public int chunkSize;
     public int chunkHeight;
+    public Vector3 chunkWorldPos;
     [ReadOnly]
     public NativeArray<Voxel> voxelsData;
     public NativeArray<Voxel> updatedVoxelsData;
     public void Execute(int index)
     {
-        _ = index / (chunkSize * chunkHeight);
-        int y = (index / chunkSize) % chunkHeight;
-        _ = index % chunkSize;
+        int x = index / (chunkSize * chunkHeight);
+        int y = (index % (chunkSize * chunkHeight)) / chunkSize;;
+        int z = index % chunkSize;
+        Vector3 voxelWorldPos = chunkWorldPos + new Vector3(x, y, z);
         Voxel voxel = voxelsData[index];
         
         if (voxel.type == Voxel.VoxelType.Grass)
         {
             // Check if there is a voxel directly above this one
-            if (y < chunkHeight - 1)
+            if (voxelWorldPos.y < (chunkWorldPos.y + chunkHeight) - 1)
             {
                 int aboveIndex = index + chunkSize; // Move one level up
                 Voxel aboveVoxel = voxelsData[aboveIndex];

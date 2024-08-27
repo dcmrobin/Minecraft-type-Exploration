@@ -59,6 +59,7 @@ public class Chunk : MonoBehaviour
         {
             chunkSize = chunkSize,
             chunkHeight = chunkHeight,
+            chunkWorldPos = chunkWorldPosition,
             voxelsData = generateVoxelsJob.voxelsData,
             updatedVoxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
         };

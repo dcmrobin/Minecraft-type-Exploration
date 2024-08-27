@@ -152,7 +152,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75de8c60d7120664f8fa649087926a66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  initialPoolSize: 10
 --- !u!4 &284360663
 Transform:
   m_ObjectHideFlags: 0
@@ -657,8 +656,8 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  loadRadius: 2
-  unloadRadius: 2
+  loadRadius: 5
+  unloadRadius: 5
   chunkUpdateThreshold: 1
 --- !u!4 &1773224465
 Transform:
