@@ -511,7 +511,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9d83323c8e55bd4ab73ccb51a0b669e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  worldSize: 7
+  worldSize: 10
   chunkSize: 16
   chunkHeight: 16
   noiseSeed: 1234
