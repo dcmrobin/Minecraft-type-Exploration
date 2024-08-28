@@ -611,7 +611,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  renderDistance: 5
+  renderDistance: 7
   noiseSeed: 1234
 --- !u!4 &1773224465
 Transform:
