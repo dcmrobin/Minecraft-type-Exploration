@@ -3,6 +3,10 @@ using UnityEngine;
 
 public class World : MonoBehaviour
 {
+    [Range(0.95f, 0f)]
+    public float globalLightLevel;
+    public Color dayColor;
+    public Color nightColor;
     public int worldSize = 5; 
     public int chunkSize = 16;
     public int chunkHeight = 16;
@@ -41,6 +45,9 @@ public class World : MonoBehaviour
 
     void Update()
     {
+        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
+        player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(dayColor, nightColor, globalLightLevel);
+
         Vector3Int currentPlayerChunkPos = GetChunkPosition(player.position);
 
         if (currentPlayerChunkPos != lastPlayerChunkPos)

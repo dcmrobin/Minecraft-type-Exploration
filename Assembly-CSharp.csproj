@@ -107,6 +107,7 @@
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Assets\Voxels\StandardBlockShader.shader" />
     <None Include="Assets\Voxels\todo.txt" />
     <None Include="Assets\FastNoise Unity\FastNoise SIMD\Plugins\x64\FastNoiseSIMD_CLib.dll" />
     <None Include="Assets\Tests\One Million Voxels\Shaders\VoxelShader.shader" />

@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using SimplexNoise;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 public class Chunk : MonoBehaviour
 {
@@ -15,6 +16,7 @@ public class Chunk : MonoBehaviour
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
+    List<Color> colors = new();
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
@@ -156,7 +158,8 @@ public class Chunk : MonoBehaviour
             {
                 vertices = vertices.ToArray(),
                 triangles = triangles.ToArray(),
-                uv = uvs.ToArray()
+                uv = uvs.ToArray(),
+                colors = colors.ToArray()
             };
 
             mesh.RecalculateNormals(); // Important for lighting
@@ -264,12 +267,36 @@ public class Chunk : MonoBehaviour
         Voxel voxel = voxels[x, y, z];
         Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
 
+        float lightLevel;
+
+        int yPos = y + 1;
+        bool inShade = false;
+        while (yPos < chunkHeight)
+        {
+            if (voxels[x, yPos, z].isActive)
+            {
+                inShade = true;
+                break;
+            }
+
+            yPos++;
+        }
+
+        if (inShade)
+            lightLevel = 0.5f;
+        else
+            lightLevel = 0f;
+
         if (faceIndex == 0) // Top Face
         {
             vertices.Add(new Vector3(x,     y + 1, z    ));
             vertices.Add(new Vector3(x,     y + 1, z + 1)); 
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
             vertices.Add(new Vector3(x + 1, y + 1, z    )); 
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -279,6 +306,10 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y, z    )); 
             vertices.Add(new Vector3(x + 1, y, z + 1));
             vertices.Add(new Vector3(x,     y, z + 1)); 
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -288,6 +319,10 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x, y,     z + 1));
             vertices.Add(new Vector3(x, y + 1, z + 1));
             vertices.Add(new Vector3(x, y + 1, z    ));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -297,6 +332,10 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y,     z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -306,6 +345,10 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x + 1, y,     z + 1));
             vertices.Add(new Vector3(x + 1, y + 1, z + 1));
             vertices.Add(new Vector3(x,     y + 1, z + 1));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -315,6 +358,10 @@ public class Chunk : MonoBehaviour
             vertices.Add(new Vector3(x,     y,     z    ));
             vertices.Add(new Vector3(x,     y + 1, z    ));
             vertices.Add(new Vector3(x + 1, y + 1, z    ));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, lightLevel));
             uvs.AddRange(faceUVs);
         }
 
@@ -385,6 +432,7 @@ public class Chunk : MonoBehaviour
             vertices.Clear();
             triangles.Clear();
             uvs.Clear();
+            colors.Clear();
         }
     }
 }
