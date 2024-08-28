@@ -469,7 +469,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 32
+  chunkHeight: 16
   maxHeight: 0.2
   noiseScale: 0.015
   mountainsCurve:
