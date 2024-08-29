@@ -154,7 +154,7 @@ public class Chunk : MonoBehaviour
                 {
                     Voxel thisVoxel = voxels[x, y, z];
 
-                    if (thisVoxel.type != Voxel.VoxelType.Air)
+                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
                         lightRay = thisVoxel.transparency;
 
                     thisVoxel.globalLightPercentage = lightRay;
