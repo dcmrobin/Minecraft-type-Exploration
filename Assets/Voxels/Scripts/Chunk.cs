@@ -90,17 +90,6 @@ public class Chunk : MonoBehaviour
                     }
                 }
             }
-
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    for (int y = 0; y < chunkHeight; y++)
-                    {
-                        
-                    }
-                }
-            }
         });
     }
 
