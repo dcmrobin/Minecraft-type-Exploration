@@ -30,7 +30,7 @@ public class Chunk : MonoBehaviour
         caveNoise.SetFrequency(0.02f);
     }
 
-    private async Task GenerateVoxelDataAsync(Vector3 chunkWorldPosition)
+    private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
         // Precompute noise values and curve evaluations
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
@@ -41,56 +41,52 @@ public class Chunk : MonoBehaviour
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
 
-        // Use Task.Run to run CPU-bound work on a background thread
-        await Task.Run(() =>
+        for (int x = 0; x < chunkSize; x++)
         {
-            for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
             {
-                for (int z = 0; z < chunkSize; z++)
+                Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
+
+                baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
+                lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
+                biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
+
+                mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
+                mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
+
+                for (int y = 0; y < chunkHeight; y++)
                 {
-                    Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
-    
-                    baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
-                    lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                    biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
-    
-                    mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                    mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
-    
-                    for (int y = 0; y < chunkHeight; y++)
-                    {
-                        // Now using 3D noise for the simplex map
-                        simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
-                        caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
+                    // Now using 3D noise for the simplex map
+                    simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
+                    caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
 
-                        // Generate the voxels
-                        Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
-                        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
-                        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
-                        calculatedHeight *= mountainCurveValues[x, z];
-                        calculatedHeight += 150;
-                        Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight) ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
+                   // Generate the voxels
+                   Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
+                   float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
+                   float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
+                   calculatedHeight *= mountainCurveValues[x, z];
+                   calculatedHeight += 150;
+                   Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight) ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
 
-                        if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
-                        {
-                            type = Voxel.VoxelType.Dirt;
-                        }
-                        if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
-                        {
-                            type = Voxel.VoxelType.Grass;
-                        }
+                   if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
+                   {
+                       type = Voxel.VoxelType.Dirt;
+                   }
+                   if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
+                   {
+                       type = Voxel.VoxelType.Grass;
+                   }
 
-                        if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
-                        {
-                            type = Voxel.VoxelType.Air;
-                        }
+                   if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
+                   {
+                       type = Voxel.VoxelType.Air;
+                   }
 
-                        Vector3 voxelPosition = new(x, y, z);
-                        voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
-                    }
-                }
-            }
-        });
+                   Vector3 voxelPosition = new(x, y, z);
+                   voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
+               }
+           }
+        }
     }
 
     public void CalculateLight()
@@ -172,20 +168,19 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public async Task GenerateMesh()
+    public void GenerateMesh()
     {
-        await Task.Run(() => {
-            for (int x = 0; x < chunkSize; x++)
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int y = 0; y < chunkHeight; y++)
             {
-                for (int y = 0; y < chunkHeight; y++)
+                for (int z = 0; z < chunkSize; z++)
                 {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        ProcessVoxel(x, y, z);
-                    }
+                    ProcessVoxel(x, y, z);
                 }
             }
-        });
+        }
+
         if (vertices.Count > 0) {
             Mesh mesh = new()
             {
@@ -205,15 +200,15 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public async Task Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
+    public void Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
     {
         this.chunkSize = size;
         this.chunkHeight = height;
         this.mountainsCurve = mountainsCurve;
         this.mountainBiomeCurve = mountainBiomeCurve;
         voxels = new Voxel[size, height, size];
-        // Call GenerateVoxelData asynchronously
-        await GenerateVoxelDataAsync(transform.position);
+
+        GenerateVoxelData(transform.position);
         CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
@@ -225,7 +220,7 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        await GenerateMesh(); // Call after ensuring all necessary components and data are set
+        GenerateMesh(); // Call after ensuring all necessary components and data are set
     }
 
     private void ProcessVoxel(int x, int y, int z)
