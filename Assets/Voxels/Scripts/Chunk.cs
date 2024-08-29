@@ -5,6 +5,9 @@ using Unity.Jobs;
 using SimplexNoise;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
+using System;
+using UnityEngine.UIElements;
+using UnityEditor.PackageManager;
 
 public class Chunk : MonoBehaviour
 {
@@ -110,9 +113,9 @@ public class Chunk : MonoBehaviour
 
             for (int x = 0; x < chunkSize; x++)
             {
-                for (int y = 0; y < chunkHeight; y++)
+                for (int z = 0; z < chunkSize; z++)
                 {
-                    for (int z = 0; z < chunkSize; z++)
+                    for (int y = 0; y < chunkHeight; y++)
                     {
                         int index = x * chunkSize * chunkHeight + y * chunkSize + z;
                         Voxel voxel = generateVoxelsJob.voxelsData[index];
@@ -137,6 +140,29 @@ public class Chunk : MonoBehaviour
         generateVoxelsJob.mountainBiomeCurveValues.Dispose();
         generateVoxelsJob.voxelsData.Dispose();
         fixGrassJob.updatedVoxelsData.Dispose();
+    }
+
+    public void CalculateLight()
+    {
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                float lightRay = 1f;
+
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    Voxel thisVoxel = voxels[x, y, z];
+
+                    if (thisVoxel.type != Voxel.VoxelType.Air)
+                        lightRay = thisVoxel.transparency;
+
+                    thisVoxel.globalLightPercentage = lightRay;
+
+                    voxels[x, y, z] = thisVoxel;
+                }
+            }
+        }
     }
 
     public async Task GenerateMesh()
@@ -179,9 +205,9 @@ public class Chunk : MonoBehaviour
         this.mountainsCurve = mountainsCurve;
         this.mountainBiomeCurve = mountainBiomeCurve;
         voxels = new Voxel[size, height, size];
-
         // Call GenerateVoxelData asynchronously
         await GenerateVoxelDataAsync(transform.position);
+        CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -262,30 +288,53 @@ public class Chunk : MonoBehaviour
         return false;
     }
 
+    private Voxel GetVoxelSafe(int x, int y, int z)
+    {
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
+        {
+            //Debug.Log("Voxel safe out of bounds");
+            return new Voxel(); // Default or inactive voxel
+        }
+        //Debug.Log("Voxel safe is in bounds");
+        return voxels[x, y, z];
+    }
+
     private void AddFaceData(int x, int y, int z, int faceIndex)
     {
         Voxel voxel = voxels[x, y, z];
-        Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
+        Voxel neighborVoxel = new();
 
-        float lightLevel;
-
-        int yPos = y + 1;
-        bool inShade = false;
-        while (yPos < chunkHeight)
+        switch (faceIndex)
         {
-            if (voxels[x, yPos, z].isActive)
-            {
-                inShade = true;
+            case 0:
+                neighborVoxel = GetVoxelSafe(x, y + 1, z);
                 break;
-            }
-
-            yPos++;
+            case 1:
+                neighborVoxel = GetVoxelSafe(x, y - 1, z);
+                break;
+            case 2:
+                neighborVoxel = GetVoxelSafe(x - 1, y, z);
+                break;
+            case 3:
+                neighborVoxel = GetVoxelSafe(x + 1, y, z);
+                break;
+            case 4:
+                neighborVoxel = GetVoxelSafe(x, y, z + 1);
+                break;
+            case 5:
+                neighborVoxel = GetVoxelSafe(x, y, z - 1);
+                break;
+            default:
+                Debug.Log("Error");
+                neighborVoxel = voxels[x, y, z];
+                break;
         }
 
-        if (inShade)
-            lightLevel = 0.5f;
-        else
-            lightLevel = 0f;
+        Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
+
+
+        float lightLevel = neighborVoxel.globalLightPercentage;
+        //float lightLevel = 1;
 
         if (faceIndex == 0) // Top Face
         {

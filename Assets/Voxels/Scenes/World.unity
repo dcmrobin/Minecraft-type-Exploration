@@ -206,9 +206,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9d83323c8e55bd4ab73ccb51a0b669e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  globalLightLevel: 0
-  dayColor: {r: 0.28261834, g: 0.7005183, b: 0.8207547, a: 0}
-  nightColor: {r: 0.07164471, g: 0.08877096, b: 0.4339623, a: 0}
+  globalLightLevel: 0.95
+  dayColor: {r: 0, g: 0.92465734, b: 1, a: 0}
+  nightColor: {r: 0, g: 0.07626961, b: 0.4433962, a: 0}
   worldSize: 5
   chunkSize: 16
   chunkHeight: 16
