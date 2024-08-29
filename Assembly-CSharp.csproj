@@ -68,41 +68,41 @@
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_AlienPlanet.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise SIMD\FastNoiseSIMDUnity.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise\FastNoiseMeshWarp.cs" />
+    <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\VoxelEngineManager.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorBase.cs" />
+    <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\FreeCam.cs" />
+    <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_CrackedSurface.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise\FastNoiseUnity.cs" />
+    <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\ObjectPool.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkGameObject.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\DAGMain.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerator.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorSIMD.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_FloatingIslands.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\MeshBuilder.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Desert.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\HalfHelper.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Voxel.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Noise.cs" />
     <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\MouseOrbit.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Vector3i.cs" />
     <Compile Include="Assets\Voxels\Scripts\GlobalNoise.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Caves.cs" />
+    <Compile Include="Assets\Tests\Voxel DAG\Scripts\VoxelNode.cs" />
     <Compile Include="Assets\Voxels\Scripts\World.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Half.cs" />
     <Compile Include="Assets\Tests\One Million Voxels\Scripts\CubeRenderer.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_GrassLand.cs" />
     <Compile Include="Assets\Voxels\Scripts\Chunk.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise SIMD\FastNoiseSIMD.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkQueue.cs" />
-    <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorBase.cs" />
-    <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\FreeCam.cs" />
-    <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
-    <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\ObjectPool.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerator.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorSIMD.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Desert.cs" />
-    <Compile Include="Assets\Voxels\Scripts\Noise.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Caves.cs" />
-    <Compile Include="Assets\Tests\Voxel DAG\Scripts\VoxelNode.cs" />
-    <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Half.cs" />
     <Compile Include="Assets\Voxels\Scripts\FastNoiseLite.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Chunk.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Voxels\StandardBlockShader.shader" />
@@ -1039,12 +1039,12 @@
       <HintPath>Library\ScriptAssemblies\Unity.TestTools.CodeCoverage.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.Collections">
-      <HintPath>Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Unity.TestTools.CodeCoverage.Editor.OpenCover.Model">
       <HintPath>Library\ScriptAssemblies\Unity.TestTools.CodeCoverage.Editor.OpenCover.Model.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Collections">
+      <HintPath>Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VisualScripting.State.Editor">

@@ -207,8 +207,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   globalLightLevel: 1
-  dayColor: {r: 0, g: 0.92465734, b: 1, a: 0}
-  nightColor: {r: 0, g: 0.07626961, b: 0.4433962, a: 0}
+  dayColor: {r: 0.5613208, g: 0.8401713, b: 1, a: 0}
+  nightColor: {r: 0, g: 0.012578605, b: 0.0754717, a: 0}
   worldSize: 5
   chunkSize: 16
   chunkHeight: 16
@@ -399,22 +399,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 441482e8936e35048a1dffac814e3ef8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Profile: {fileID: 0}
-  m_NeedUpdateStaticLightingSky: 0
-  m_StaticLightingSkyUniqueID: 0
-  m_LastComputedHash: 0
-  m_StaticLightingCloudsUniqueID: 0
-  m_LastComputedCloudHash: 0
-  m_SkySettings: {fileID: 0}
-  m_SkySettingsFromProfile: {fileID: 0}
-  m_CloudSettings: {fileID: 0}
-  m_CloudSettingsFromProfile: {fileID: 0}
-  m_StaticLightingVolumetricClouds: 0
-  m_LastComputedVolumetricCloudHash: 0
-  m_VolumetricClouds: {fileID: 0}
-  m_VolumetricCloudSettingsFromProfile: {fileID: 0}
-  m_VolumeSkyList: []
-  m_VolumeCloudsList: []
 --- !u!4 &1795558817
 Transform:
   m_ObjectHideFlags: 1

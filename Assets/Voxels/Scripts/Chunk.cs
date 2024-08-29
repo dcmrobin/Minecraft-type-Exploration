@@ -62,6 +62,31 @@ public class Chunk : MonoBehaviour
                         // Now using 3D noise for the simplex map
                         simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
                         caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
+
+                        // Generate the voxels
+                        Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
+                        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
+                        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
+                        calculatedHeight *= mountainCurveValues[x, z];
+                        calculatedHeight += 150;
+                        Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight) ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
+
+                        if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
+                        {
+                            type = Voxel.VoxelType.Dirt;
+                        }
+                        if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
+                        {
+                            type = Voxel.VoxelType.Grass;
+                        }
+
+                        if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
+                        {
+                            type = Voxel.VoxelType.Air;
+                        }
+
+                        Vector3 voxelPosition = new(x, y, z);
+                        voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
                     }
                 }
             }
@@ -72,47 +97,7 @@ public class Chunk : MonoBehaviour
                 {
                     for (int y = 0; y < chunkHeight; y++)
                     {
-                        Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
-                        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
-                        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
-                        calculatedHeight *= mountainCurveValues[x, z];
-                        calculatedHeight += 150;
-                        Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
-                        if (voxelWorldPos.y < calculatedHeight - 2)
-                        {
-                            type = Voxel.VoxelType.Stone;
-                        }
-                        if (type == Voxel.VoxelType.Air && voxelWorldPos.y < 3)
-                        {
-                            type = Voxel.VoxelType.Grass;
-                        }
-    
-                        if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
-                        {
-                            type = Voxel.VoxelType.Air;
-                        }
-                        Vector3 voxelPosition = new(x, y, z);
-                        voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
-
-
-
-
-                        Voxel voxel = voxels[x, y, z];
-                        if (voxel.type == Voxel.VoxelType.Grass)
-                        {
-                            // Check if there is a voxel directly above this one
-                            if (voxelWorldPos.y < (chunkWorldPosition.y + chunkHeight) - 1)
-                            {
-                                Voxel aboveVoxel = voxels[x, y + 1, z];
-                                // If the voxel above is not air, convert this voxel to dirt
-                                if (aboveVoxel.type != Voxel.VoxelType.Air)
-                                {
-                                    voxel.type = Voxel.VoxelType.Dirt;
-                                    voxel.isActive = true;
-                                }
-                            }
-                        }
-                        voxels[x, y, z] = new Voxel(voxel.position, voxel.type, voxel.isActive);
+                        
                     }
                 }
             }
