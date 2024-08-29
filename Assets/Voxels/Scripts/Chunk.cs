@@ -41,30 +41,6 @@ public class Chunk : MonoBehaviour
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
 
-        GenerateVoxelsJob generateVoxelsJob = new()
-        {
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            chunkWorldPosition = chunkWorldPosition,
-            maxHeight = World.Instance.maxHeight,
-            baseNoiseMap = new NativeArray<float>(baseNoiseMap.Length, Allocator.TempJob),
-            lod1Map = new NativeArray<float>(lod1Map.Length, Allocator.TempJob),
-            simplexMap = new NativeArray<float>(simplexMap.Length, Allocator.TempJob),
-            caveMap = new NativeArray<float>(caveMap.Length, Allocator.TempJob),
-            mountainCurveValues = new NativeArray<float>(mountainCurveValues.Length, Allocator.TempJob),
-            mountainBiomeCurveValues = new NativeArray<float>(mountainBiomeCurveValues.Length, Allocator.TempJob),
-            voxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
-        };
-
-        FixGrassJob fixGrassJob = new()
-        {
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            chunkWorldPos = chunkWorldPosition,
-            voxelsData = generateVoxelsJob.voxelsData,
-            updatedVoxelsData = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob)
-        };
-
         // Use Task.Run to run CPU-bound work on a background thread
         await Task.Run(() =>
         {
@@ -73,39 +49,22 @@ public class Chunk : MonoBehaviour
                 for (int z = 0; z < chunkSize; z++)
                 {
                     Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
-
+    
                     baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
                     lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
                     biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
-
+    
                     mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
                     mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
-
+    
                     for (int y = 0; y < chunkHeight; y++)
                     {
                         // Now using 3D noise for the simplex map
                         simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
                         caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
-
-                        int index3d = x * chunkSize * chunkHeight + y * chunkSize + z;
-
-                        generateVoxelsJob.simplexMap[index3d] = simplexMap[x, y, z]; // Assign 3D noise
-                        generateVoxelsJob.caveMap[index3d] = caveMap[x, y, z];
                     }
-
-                    int index = x * chunkSize + z;
-                    generateVoxelsJob.baseNoiseMap[index] = baseNoiseMap[x, z];
-                    generateVoxelsJob.lod1Map[index] = lod1Map[x, z];
-                    generateVoxelsJob.mountainCurveValues[index] = mountainCurveValues[x, z];
-                    generateVoxelsJob.mountainBiomeCurveValues[index] = mountainBiomeCurveValues[x, z];
                 }
             }
-
-            JobHandle handle = generateVoxelsJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-            handle.Complete();
-
-            JobHandle fixGrassHandle = fixGrassJob.Schedule(chunkSize * chunkHeight * chunkSize, 64);
-            fixGrassHandle.Complete();
 
             for (int x = 0; x < chunkSize; x++)
             {
@@ -113,29 +72,51 @@ public class Chunk : MonoBehaviour
                 {
                     for (int y = 0; y < chunkHeight; y++)
                     {
-                        int index = x * chunkSize * chunkHeight + y * chunkSize + z;
-                        Voxel voxel = generateVoxelsJob.voxelsData[index];
+                        Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
+                        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
+                        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
+                        calculatedHeight *= mountainCurveValues[x, z];
+                        calculatedHeight += 150;
+                        Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight + 1) ? Voxel.VoxelType.Grass : Voxel.VoxelType.Air;
+                        if (voxelWorldPos.y < calculatedHeight - 2)
+                        {
+                            type = Voxel.VoxelType.Stone;
+                        }
+                        if (type == Voxel.VoxelType.Air && voxelWorldPos.y < 3)
+                        {
+                            type = Voxel.VoxelType.Grass;
+                        }
+    
+                        if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
+                        {
+                            type = Voxel.VoxelType.Air;
+                        }
+                        Vector3 voxelPosition = new(x, y, z);
+                        voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
 
-                        Vector3 worldPos = chunkWorldPosition + new Vector3(x, y, z);
 
-                        voxels[x, y, z] = new Voxel(worldPos, voxel.type, voxel.isActive);
 
-                        Voxel newVoxel = fixGrassJob.updatedVoxelsData[index];
-                        voxels[x, y, z] = new Voxel(worldPos, newVoxel.type, newVoxel.isActive);
+
+                        Voxel voxel = voxels[x, y, z];
+                        if (voxel.type == Voxel.VoxelType.Grass)
+                        {
+                            // Check if there is a voxel directly above this one
+                            if (voxelWorldPos.y < (chunkWorldPosition.y + chunkHeight) - 1)
+                            {
+                                Voxel aboveVoxel = voxels[x, y + 1, z];
+                                // If the voxel above is not air, convert this voxel to dirt
+                                if (aboveVoxel.type != Voxel.VoxelType.Air)
+                                {
+                                    voxel.type = Voxel.VoxelType.Dirt;
+                                    voxel.isActive = true;
+                                }
+                            }
+                        }
+                        voxels[x, y, z] = new Voxel(voxel.position, voxel.type, voxel.isActive);
                     }
                 }
             }
         });
-
-        // Dispose of NativeArrays
-        generateVoxelsJob.baseNoiseMap.Dispose();
-        generateVoxelsJob.lod1Map.Dispose();
-        generateVoxelsJob.simplexMap.Dispose();
-        generateVoxelsJob.caveMap.Dispose();
-        generateVoxelsJob.mountainCurveValues.Dispose();
-        generateVoxelsJob.mountainBiomeCurveValues.Dispose();
-        generateVoxelsJob.voxelsData.Dispose();
-        fixGrassJob.updatedVoxelsData.Dispose();
     }
 
     public void CalculateLight()

@@ -73,7 +73,6 @@
     <Compile Include="Assets\FastNoise Unity\FastNoise\FastNoiseUnity.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkGameObject.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\DAGMain.cs" />
-    <Compile Include="Assets\Voxels\Scripts\FixGrassJob.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_FloatingIslands.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\MeshBuilder.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\HalfHelper.cs" />
@@ -91,7 +90,6 @@
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorBase.cs" />
     <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\FreeCam.cs" />
     <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
-    <Compile Include="Assets\Voxels\Scripts\GenerateVoxelsJob.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\ObjectPool.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerator.cs" />
