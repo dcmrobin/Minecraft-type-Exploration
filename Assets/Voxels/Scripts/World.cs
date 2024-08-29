@@ -4,7 +4,7 @@ using UnityEngine;
 public class World : MonoBehaviour
 {
     [Header("Lighting")]
-    [Range(0.95f, 0f)]
+    [Range(0f, 1f)]
     public float globalLightLevel;
     public Color dayColor;
     public Color nightColor;

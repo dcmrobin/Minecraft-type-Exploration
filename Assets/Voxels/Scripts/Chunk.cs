@@ -4,10 +4,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using SimplexNoise;
 using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
-using System;
-using UnityEngine.UIElements;
-using UnityEditor.PackageManager;
 
 public class Chunk : MonoBehaviour
 {
@@ -144,6 +140,8 @@ public class Chunk : MonoBehaviour
 
     public void CalculateLight()
     {
+        Queue<Vector3Int> litVoxels = new();
+
         for (int x = 0; x < chunkSize; x++)
         {
             for (int z = 0; z < chunkSize; z++)
@@ -160,6 +158,60 @@ public class Chunk : MonoBehaviour
                     thisVoxel.globalLightPercentage = lightRay;
 
                     voxels[x, y, z] = thisVoxel;
+
+                    if (lightRay > World.lightFalloff)
+                    {
+                        litVoxels.Enqueue(new Vector3Int(x, y, z));
+                    }
+                }
+            }
+        }
+
+        while (litVoxels.Count > 0)
+        {
+            Vector3Int v = litVoxels.Dequeue();
+            for (int p = 0; p < 6; p++)
+            {
+                Vector3 currentVoxel = new();
+
+                switch (p)
+                {
+                    case 0:
+                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
+                        break;
+                    case 1:
+                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
+                        break;
+                    case 2:
+                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
+                        break;
+                    case 3:
+                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
+                        break;
+                    case 4:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
+                        break;
+                    case 5:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
+                        break;
+                }
+
+                Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
+
+                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
+                    if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
+                    {
+                        voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
+
+                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
+                        {
+                            litVoxels.Enqueue(neighbor);
+                        }
+                    }
+                }
+                else
+                {
+                    //Debug.Log("out of bounds of chunk");
                 }
             }
         }

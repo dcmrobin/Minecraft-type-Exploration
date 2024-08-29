@@ -206,7 +206,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9d83323c8e55bd4ab73ccb51a0b669e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  globalLightLevel: 0.95
+  globalLightLevel: 1
   dayColor: {r: 0, g: 0.92465734, b: 1, a: 0}
   nightColor: {r: 0, g: 0.07626961, b: 0.4433962, a: 0}
   worldSize: 5
