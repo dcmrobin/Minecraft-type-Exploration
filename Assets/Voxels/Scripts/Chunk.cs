@@ -49,9 +49,9 @@ public class Chunk : MonoBehaviour
                 for (int y = 0; y < chunkHeight; y++)
                 {
                     Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
-                    float calculatedHeight = CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map);
+                    float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
 
-                    Voxel.VoxelType type = DetermineVoxelType(voxelWorldPos, calculatedHeight, caveMap[x, y, z]);
+                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelWorldPos, calculatedHeight, caveMap[x, y, z]);
                     voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
                 }
             }
@@ -98,29 +98,6 @@ public class Chunk : MonoBehaviour
                     caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, (y + chunkWorldPosition.y) / heightScale, chunkWorldPosition.z + z);
 
         return caveMap;
-    }
-
-    private float CalculateHeight(int x, int z, int y, float[,] mountainCurveValues, float[,,] simplexMap, float[,] lod1Map)
-    {
-        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
-        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight * mountainCurveValues[x, z];
-        return calculatedHeight + 150;
-    }
-
-    private Voxel.VoxelType DetermineVoxelType(Vector3 voxelWorldPos, float calculatedHeight, float caveNoiseValue)
-    {
-        Voxel.VoxelType type = voxelWorldPos.y <= calculatedHeight ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
-
-        if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
-            type = Voxel.VoxelType.Dirt;
-
-        if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
-            type = Voxel.VoxelType.Grass;
-
-        if (caveNoiseValue > 0.45f && voxelWorldPos.y <= 100 + (caveNoiseValue * 20) || caveNoiseValue > 0.8f && voxelWorldPos.y > 100 + (caveNoiseValue * 20))
-            type = Voxel.VoxelType.Air;
-
-        return type;
     }
 
     public void CalculateLight()
