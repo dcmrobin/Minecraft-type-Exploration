@@ -134,7 +134,7 @@ public class Chunk : MonoBehaviour
             Vector3Int v = litVoxels.Dequeue();
             for (int p = 0; p < 6; p++)
             {
-                Vector3 currentVoxel = GetNeighbor(v, p);
+                Vector3 currentVoxel = Voxel.GetNeighbor(v, p);
 
                 Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
 
@@ -155,20 +155,6 @@ public class Chunk : MonoBehaviour
                 }
             }
         }
-    }
-
-    private Vector3Int GetNeighbor(Vector3Int v, int direction)
-    {
-        return direction switch
-        {
-            0 => new Vector3Int(v.x, v.y + 1, v.z),
-            1 => new Vector3Int(v.x, v.y - 1, v.z),
-            2 => new Vector3Int(v.x - 1, v.y, v.z),
-            3 => new Vector3Int(v.x + 1, v.y, v.z),
-            4 => new Vector3Int(v.x, v.y, v.z + 1),
-            5 => new Vector3Int(v.x, v.y, v.z - 1),
-            _ => v
-        };
     }
 
     private bool IsWithinBounds(Vector3Int v)
