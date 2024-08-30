@@ -32,61 +32,95 @@ public class Chunk : MonoBehaviour
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
-        // Precompute noise values and curve evaluations
-        float[,] baseNoiseMap = new float[chunkSize, chunkSize];
-        float[,] lod1Map = new float[chunkSize, chunkSize];
-        float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];  // 3D array for 3D noise
-        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
-        float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
-        float[,] mountainCurveValues = new float[chunkSize, chunkSize];
-        float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
+        float[,] baseNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.0055f);
+        float[,] lod1Map = Generate2DNoiseMap(chunkWorldPosition, 0.16f, 25);
+        float[,] biomeNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.004f);
+
+        float[,] mountainCurveValues = EvaluateNoiseMap(baseNoiseMap, mountainsCurve);
+        float[,] mountainBiomeCurveValues = EvaluateNoiseMap(biomeNoiseMap, mountainBiomeCurve);
+
+        float[,,] simplexMap = Generate3DNoiseMap(chunkWorldPosition, 0.025f, 1.5f);
+        float[,,] caveMap = GenerateCaveMap(chunkWorldPosition, 1.5f);
 
         for (int x = 0; x < chunkSize; x++)
         {
             for (int z = 0; z < chunkSize; z++)
             {
-                Vector3 worldPos = chunkWorldPosition + new Vector3(x, 0, z);
-
-                baseNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.0055f, worldPos.z * 0.0055f);
-                lod1Map[x, z] = Mathf.PerlinNoise(worldPos.x * 0.16f, worldPos.z * 0.16f) / 25;
-                biomeNoiseMap[x, z] = Mathf.PerlinNoise(worldPos.x * 0.004f, worldPos.z * 0.004f);
-
-                mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
-
                 for (int y = 0; y < chunkHeight; y++)
                 {
-                    // Now using 3D noise for the simplex map
-                    simplexMap[x, y, z] = Noise.CalcPixel3D((int)worldPos.x, (int)((y + chunkWorldPosition.y)/1.5f), (int)worldPos.z, 0.025f) / 600;
-                    caveMap[x, y, z] = caveNoise.GetNoise(worldPos.x, ((y + chunkWorldPosition.y)/1.5f), worldPos.z);
+                    Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
+                    float calculatedHeight = CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map);
 
-                   // Generate the voxels
-                   Vector3 voxelWorldPos = chunkWorldPosition + new Vector3(x, y, z);
-                   float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
-                   float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight;
-                   calculatedHeight *= mountainCurveValues[x, z];
-                   calculatedHeight += 150;
-                   Voxel.VoxelType type = (voxelWorldPos.y <= calculatedHeight) ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
-
-                   if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
-                   {
-                       type = Voxel.VoxelType.Dirt;
-                   }
-                   if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
-                   {
-                       type = Voxel.VoxelType.Grass;
-                   }
-
-                   if (caveMap[x, y, z] > 0.45 && voxelWorldPos.y <= (100 + (caveMap[x, y, z] * 20)) || caveMap[x, y, z] > 0.8 && voxelWorldPos.y > (100 + (caveMap[x, y, z] * 20)))
-                   {
-                       type = Voxel.VoxelType.Air;
-                   }
-
-                   Vector3 voxelPosition = new(x, y, z);
-                   voxels[x, y, z] = new Voxel(voxelPosition, type, type != Voxel.VoxelType.Air);
-               }
-           }
+                    Voxel.VoxelType type = DetermineVoxelType(voxelWorldPos, calculatedHeight, caveMap[x, y, z]);
+                    voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
+                }
+            }
         }
+    }
+
+    private float[,] Generate2DNoiseMap(Vector3 chunkWorldPosition, float frequency, float divisor = 1f)
+    {
+        float[,] noiseMap = new float[chunkSize, chunkSize];
+        for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
+                noiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * frequency, (chunkWorldPosition.z + z) * frequency) / divisor;
+
+        return noiseMap;
+    }
+
+    private float[,] EvaluateNoiseMap(float[,] noiseMap, AnimationCurve curve)
+    {
+        float[,] evaluatedMap = new float[chunkSize, chunkSize];
+        for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
+                evaluatedMap[x, z] = curve.Evaluate(noiseMap[x, z]);
+
+        return evaluatedMap;
+    }
+
+    private float[,,] Generate3DNoiseMap(Vector3 chunkWorldPosition, float frequency, float heightScale)
+    {
+        float[,,] noiseMap = new float[chunkSize, chunkHeight, chunkSize];
+        for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
+                for (int y = 0; y < chunkHeight; y++)
+                    noiseMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, (int)((y + chunkWorldPosition.y) / heightScale), (int)chunkWorldPosition.z + z, frequency) / 600;
+
+        return noiseMap;
+    }
+
+    private float[,,] GenerateCaveMap(Vector3 chunkWorldPosition, float heightScale)
+    {
+        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
+        for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
+                for (int y = 0; y < chunkHeight; y++)
+                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, (y + chunkWorldPosition.y) / heightScale, chunkWorldPosition.z + z);
+
+        return caveMap;
+    }
+
+    private float CalculateHeight(int x, int z, int y, float[,] mountainCurveValues, float[,,] simplexMap, float[,] lod1Map)
+    {
+        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
+        float calculatedHeight = normalizedNoiseValue * World.Instance.maxHeight * mountainCurveValues[x, z];
+        return calculatedHeight + 150;
+    }
+
+    private Voxel.VoxelType DetermineVoxelType(Vector3 voxelWorldPos, float calculatedHeight, float caveNoiseValue)
+    {
+        Voxel.VoxelType type = voxelWorldPos.y <= calculatedHeight ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
+
+        if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
+            type = Voxel.VoxelType.Dirt;
+
+        if (type == Voxel.VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
+            type = Voxel.VoxelType.Grass;
+
+        if (caveNoiseValue > 0.45f && voxelWorldPos.y <= 100 + (caveNoiseValue * 20) || caveNoiseValue > 0.8f && voxelWorldPos.y > 100 + (caveNoiseValue * 20))
+            type = Voxel.VoxelType.Air;
+
+        return type;
     }
 
     public void CalculateLight()
@@ -123,33 +157,11 @@ public class Chunk : MonoBehaviour
             Vector3Int v = litVoxels.Dequeue();
             for (int p = 0; p < 6; p++)
             {
-                Vector3 currentVoxel = new();
-
-                switch (p)
-                {
-                    case 0:
-                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
-                        break;
-                    case 1:
-                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
-                        break;
-                    case 2:
-                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
-                        break;
-                    case 3:
-                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
-                        break;
-                    case 4:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
-                        break;
-                    case 5:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
-                        break;
-                }
+                Vector3 currentVoxel = GetNeighbor(v, p);
 
                 Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
 
-                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
+                if (IsWithinBounds(neighbor)) {
                     if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
                     {
                         voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
@@ -166,6 +178,25 @@ public class Chunk : MonoBehaviour
                 }
             }
         }
+    }
+
+    private Vector3Int GetNeighbor(Vector3Int v, int direction)
+    {
+        return direction switch
+        {
+            0 => new Vector3Int(v.x, v.y + 1, v.z),
+            1 => new Vector3Int(v.x, v.y - 1, v.z),
+            2 => new Vector3Int(v.x - 1, v.y, v.z),
+            3 => new Vector3Int(v.x + 1, v.y, v.z),
+            4 => new Vector3Int(v.x, v.y, v.z + 1),
+            5 => new Vector3Int(v.x, v.y, v.z - 1),
+            _ => v
+        };
+    }
+
+    private bool IsWithinBounds(Vector3Int v)
+    {
+        return v.x >= 0 && v.x < chunkSize && v.y >= 0 && v.y < chunkHeight && v.z >= 0 && v.z < chunkSize;
     }
 
     public void GenerateMesh()
