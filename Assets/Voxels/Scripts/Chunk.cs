@@ -269,12 +269,12 @@ public class Chunk : MonoBehaviour
             bool[] facesVisible = new bool[6];
 
             // Check visibility for each face
-            facesVisible[0] = IsFaceVisible(x, y + 1, z); // Top
-            facesVisible[1] = IsFaceVisible(x, y - 1, z); // Bottom
-            facesVisible[2] = IsFaceVisible(x - 1, y, z); // Left
-            facesVisible[3] = IsFaceVisible(x + 1, y, z); // Right
-            facesVisible[4] = IsFaceVisible(x, y, z + 1); // Front
-            facesVisible[5] = IsFaceVisible(x, y, z - 1); // Back
+            facesVisible[0] = IsVoxelHiddenInChunk(x, y + 1, z); // Top
+            facesVisible[1] = IsVoxelHiddenInChunk(x, y - 1, z); // Bottom
+            facesVisible[2] = IsVoxelHiddenInChunk(x - 1, y, z); // Left
+            facesVisible[3] = IsVoxelHiddenInChunk(x + 1, y, z); // Right
+            facesVisible[4] = IsVoxelHiddenInChunk(x, y, z + 1); // Front
+            facesVisible[5] = IsVoxelHiddenInChunk(x, y, z - 1); // Back
             
             for (int i = 0; i < facesVisible.Length; i++)
             {
@@ -282,18 +282,6 @@ public class Chunk : MonoBehaviour
                     AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
             }
         }
-    }
-
-    private bool IsFaceVisible(int x, int y, int z)
-    {
-        // Convert local chunk coordinates to global coordinates
-        _ = pos + new Vector3(x, y, z);
-
-        // Check if the neighboring voxel is inactive or out of bounds in the current chunk
-        // and also if it's inactive or out of bounds in the world (neighboring chunks)
-
-        //return IsVoxelHiddenInChunk(x, y, z) && IsVoxelHiddenInWorld(globalPos);// doesn't work because of multithreading not allowing use of get_transform
-        return IsVoxelHiddenInChunk(x, y, z);
     }
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
