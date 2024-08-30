@@ -80,4 +80,19 @@ public class Voxel
             _ => v
         };
     }
+
+    public static Vector2[] GetFaceUVs(VoxelType type, int faceIndex)
+    {
+        float tileSize = 0.25f; // Assuming a 4x4 texture atlas (1/4 = 0.25)
+        Vector2[] uvs = new Vector2[4];
+
+        Vector2 tileOffset = GetTileOffset(type, faceIndex);
+
+        uvs[0] = new Vector2(tileOffset.x, tileOffset.y);
+        uvs[1] = new Vector2(tileOffset.x + tileSize, tileOffset.y);
+        uvs[2] = new Vector2(tileOffset.x + tileSize, tileOffset.y + tileSize);
+        uvs[3] = new Vector2(tileOffset.x, tileOffset.y + tileSize);
+
+        return uvs;
+    }
 }

@@ -314,7 +314,7 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        Vector2[] faceUVs = GetFaceUVs(voxel.type, faceIndex);
+        Vector2[] faceUVs = Voxel.GetFaceUVs(voxel.type, faceIndex);
 
 
         float lightLevel = neighborVoxel.globalLightPercentage;
@@ -399,45 +399,6 @@ public class Chunk : MonoBehaviour
         }
 
         AddTriangleIndices();
-    }
-
-    private Vector2[] GetFaceUVs(Voxel.VoxelType type, int faceIndex)
-    {
-        float tileSize = 0.25f; // Assuming a 4x4 texture atlas (1/4 = 0.25)
-        Vector2[] uvs = new Vector2[4];
-
-        Vector2 tileOffset = GetTileOffset(type, faceIndex);
-
-        uvs[0] = new Vector2(tileOffset.x, tileOffset.y);
-        uvs[1] = new Vector2(tileOffset.x + tileSize, tileOffset.y);
-        uvs[2] = new Vector2(tileOffset.x + tileSize, tileOffset.y + tileSize);
-        uvs[3] = new Vector2(tileOffset.x, tileOffset.y + tileSize);
-
-        return uvs;
-    }
-
-    private Vector2 GetTileOffset(Voxel.VoxelType type, int faceIndex)
-    {
-        switch (type)
-        {
-            case Voxel.VoxelType.Grass:
-                if (faceIndex == 0) // Top face
-                    return new Vector2(0, 0.75f); // Adjust based on your texture atlas
-                if (faceIndex == 1) // Bottom face
-                    return new Vector2(0.25f, 0.75f); // Adjust based on your texture atlas
-                return new Vector2(0, 0.5f); // Side faces
-
-            case Voxel.VoxelType.Dirt:
-                return new Vector2(0.25f, 0.75f); // Adjust based on your texture atlas
-
-            case Voxel.VoxelType.Stone:
-                return new Vector2(0.25f, 0.5f); // Adjust based on your texture atlas
-
-            // Add more cases for other types...
-
-            default:
-                return Vector2.zero;
-        }
     }
 
     private void AddTriangleIndices()
