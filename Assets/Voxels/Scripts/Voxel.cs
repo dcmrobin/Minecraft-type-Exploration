@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Voxel
 {
@@ -94,5 +95,66 @@ public class Voxel
         uvs[3] = new Vector2(tileOffset.x, tileOffset.y + tileSize);
 
         return uvs;
+    }
+
+    public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex, Voxel neighborVoxel)
+    {
+        Vector2[] faceUVs = Voxel.GetFaceUVs(this.type, faceIndex);
+        float lightLevel = neighborVoxel.globalLightPercentage;
+
+        switch (faceIndex)
+        {
+            case 0: // Top Face
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                break;
+            case 1: // Bottom Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                break;
+            case 2: // Left Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                break;
+            case 3: // Right Face
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                break;
+            case 4: // Front Face
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                break;
+            case 5: // Back Face
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                break;
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            colors.Add(new Color(0, 0, 0, lightLevel));
+        }
+        uvs.AddRange(faceUVs);
+
+        // Adding triangle indices
+        int vertCount = vertices.Count;
+        triangles.Add(vertCount - 4);
+        triangles.Add(vertCount - 3);
+        triangles.Add(vertCount - 2);
+        triangles.Add(vertCount - 4);
+        triangles.Add(vertCount - 2);
+        triangles.Add(vertCount - 1);
     }
 }

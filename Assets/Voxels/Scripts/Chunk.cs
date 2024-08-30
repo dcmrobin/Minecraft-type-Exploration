@@ -219,30 +219,30 @@ public class Chunk : MonoBehaviour
 
     private void ProcessVoxel(int x, int y, int z)
     {
-        // Check if the voxels array is initialized and the indices are within bounds
         if (voxels == null || x < 0 || x >= voxels.GetLength(0) || 
             y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
         {
             return; // Skip processing if the array is not initialized or indices are out of bounds
-        } 
+        }
+
         Voxel voxel = voxels[x, y, z];
         if (voxel.isActive)
         {
-            // Check each face of the voxel for visibility
             bool[] facesVisible = new bool[6];
-
-            // Check visibility for each face
             facesVisible[0] = IsVoxelHiddenInChunk(x, y + 1, z); // Top
             facesVisible[1] = IsVoxelHiddenInChunk(x, y - 1, z); // Bottom
             facesVisible[2] = IsVoxelHiddenInChunk(x - 1, y, z); // Left
             facesVisible[3] = IsVoxelHiddenInChunk(x + 1, y, z); // Right
             facesVisible[4] = IsVoxelHiddenInChunk(x, y, z + 1); // Front
             facesVisible[5] = IsVoxelHiddenInChunk(x, y, z - 1); // Back
-            
+
             for (int i = 0; i < facesVisible.Length; i++)
             {
                 if (facesVisible[i])
-                    AddFaceData(x, y, z, i); // Method to add mesh data for the visible face
+                {
+                    Voxel neighborVoxel = GetVoxelSafe(x, y, z);
+                    voxel.AddFaceData(vertices, triangles, uvs, colors, i, neighborVoxel);
+                }
             }
         }
     }
@@ -281,139 +281,6 @@ public class Chunk : MonoBehaviour
         }
         //Debug.Log("Voxel safe is in bounds");
         return voxels[x, y, z];
-    }
-
-    private void AddFaceData(int x, int y, int z, int faceIndex)
-    {
-        Voxel voxel = voxels[x, y, z];
-        Voxel neighborVoxel = new();
-
-        switch (faceIndex)
-        {
-            case 0:
-                neighborVoxel = GetVoxelSafe(x, y + 1, z);
-                break;
-            case 1:
-                neighborVoxel = GetVoxelSafe(x, y - 1, z);
-                break;
-            case 2:
-                neighborVoxel = GetVoxelSafe(x - 1, y, z);
-                break;
-            case 3:
-                neighborVoxel = GetVoxelSafe(x + 1, y, z);
-                break;
-            case 4:
-                neighborVoxel = GetVoxelSafe(x, y, z + 1);
-                break;
-            case 5:
-                neighborVoxel = GetVoxelSafe(x, y, z - 1);
-                break;
-            default:
-                Debug.Log("Error");
-                neighborVoxel = voxels[x, y, z];
-                break;
-        }
-
-        Vector2[] faceUVs = Voxel.GetFaceUVs(voxel.type, faceIndex);
-
-
-        float lightLevel = neighborVoxel.globalLightPercentage;
-        //float lightLevel = 1;
-
-        if (faceIndex == 0) // Top Face
-        {
-            vertices.Add(new Vector3(x,     y + 1, z    ));
-            vertices.Add(new Vector3(x,     y + 1, z + 1)); 
-            vertices.Add(new Vector3(x + 1, y + 1, z + 1));
-            vertices.Add(new Vector3(x + 1, y + 1, z    )); 
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        if (faceIndex == 1) // Bottom Face
-        {
-            vertices.Add(new Vector3(x,     y, z    ));
-            vertices.Add(new Vector3(x + 1, y, z    )); 
-            vertices.Add(new Vector3(x + 1, y, z + 1));
-            vertices.Add(new Vector3(x,     y, z + 1)); 
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        if (faceIndex == 2) // Left Face
-        {
-            vertices.Add(new Vector3(x, y,     z    ));
-            vertices.Add(new Vector3(x, y,     z + 1));
-            vertices.Add(new Vector3(x, y + 1, z + 1));
-            vertices.Add(new Vector3(x, y + 1, z    ));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        if (faceIndex == 3) // Right Face
-        {
-            vertices.Add(new Vector3(x + 1, y,     z + 1));
-            vertices.Add(new Vector3(x + 1, y,     z    ));
-            vertices.Add(new Vector3(x + 1, y + 1, z    ));
-            vertices.Add(new Vector3(x + 1, y + 1, z + 1));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        if (faceIndex == 4) // Front Face
-        {
-            vertices.Add(new Vector3(x,     y,     z + 1));
-            vertices.Add(new Vector3(x + 1, y,     z + 1));
-            vertices.Add(new Vector3(x + 1, y + 1, z + 1));
-            vertices.Add(new Vector3(x,     y + 1, z + 1));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        if (faceIndex == 5) // Back Face
-        {
-            vertices.Add(new Vector3(x + 1, y,     z    ));
-            vertices.Add(new Vector3(x,     y,     z    ));
-            vertices.Add(new Vector3(x,     y + 1, z    ));
-            vertices.Add(new Vector3(x + 1, y + 1, z    ));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            colors.Add(new Color(0, 0, 0, lightLevel));
-            uvs.AddRange(faceUVs);
-        }
-
-        AddTriangleIndices();
-    }
-
-    private void AddTriangleIndices()
-    {
-        int vertCount = vertices.Count;
-
-        // First triangle
-        triangles.Add(vertCount - 4);
-        triangles.Add(vertCount - 3);
-        triangles.Add(vertCount - 2);
-
-        // Second triangle
-        triangles.Add(vertCount - 4);
-        triangles.Add(vertCount - 2);
-        triangles.Add(vertCount - 1);
     }
 
     public void ResetChunk() {
