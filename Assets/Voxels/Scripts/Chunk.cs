@@ -171,6 +171,8 @@ public class Chunk : MonoBehaviour
                     }
                     else
                     {
+                        //Debug.Log($"{name} tried to get a neighbor chunk but couldn't find one");
+                        name = "bruh i didn't find a neighbor chunkkkk";
                         continue;
                     }
                 }
