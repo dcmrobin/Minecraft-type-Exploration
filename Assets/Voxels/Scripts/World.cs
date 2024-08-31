@@ -66,7 +66,7 @@ public class World : MonoBehaviour
         }
     }
 
-    private Vector3Int GetChunkPosition(Vector3 position)
+    public Vector3Int GetChunkPosition(Vector3 position)
     {
         return new Vector3Int(
             Mathf.FloorToInt(position.x / chunkSize),
@@ -123,5 +123,11 @@ public class World : MonoBehaviour
             Destroy(chunks[chunkPos].gameObject);
             chunks.Remove(chunkPos);
         }
+    }
+
+    public Chunk GetChunkAt(Vector3Int position)
+    {
+        chunks.TryGetValue(position, out Chunk chunk);
+        return chunk;
     }
 }
