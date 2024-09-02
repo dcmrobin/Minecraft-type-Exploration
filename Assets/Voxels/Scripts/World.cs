@@ -85,16 +85,13 @@ public class World : MonoBehaviour
 
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
-        int minY = useVerticalChunks ? -renderDistance : 0;
-        int maxY = useVerticalChunks ? renderDistance : 0;
-
         for (int x = -renderDistance; x <= renderDistance; x++)
         {
-            for (int y = minY; y <= maxY; y++)
+            for (int y = -renderDistance; y <= renderDistance; y++)
             {
                 for (int z = -renderDistance; z <= renderDistance; z++)
                 {
-                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
+                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, useVerticalChunks ? y : 0, z);
 
                     if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
                     {
