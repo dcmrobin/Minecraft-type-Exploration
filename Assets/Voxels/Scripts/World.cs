@@ -13,6 +13,8 @@ public class World : MonoBehaviour
     public static float lightFalloff = 0.08f;
 
     [Header("World")]
+    [Tooltip("Make the world have infinite height and depth as well as width and length... except it kind of doesn't work")]
+    public bool useVerticalChunks;
     public int worldSize = 5; 
     public int chunkSize = 16;
     public int chunkHeight = 16;
@@ -83,9 +85,12 @@ public class World : MonoBehaviour
 
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
+        int minY = useVerticalChunks ? -renderDistance : 0;
+        int maxY = useVerticalChunks ? renderDistance : 0;
+
         for (int x = -renderDistance; x <= renderDistance; x++)
         {
-            for (int y = -renderDistance; y <= renderDistance; y++)
+            for (int y = minY; y <= maxY; y++)
             {
                 for (int z = -renderDistance; z <= renderDistance; z++)
                 {

@@ -209,6 +209,7 @@ MonoBehaviour:
   globalLightLevel: 1
   dayColor: {r: 0.5613208, g: 0.8401713, b: 1, a: 0}
   nightColor: {r: 0, g: 0.012578605, b: 0.0754717, a: 0}
+  useVerticalChunks: 0
   worldSize: 5
   chunkSize: 16
   chunkHeight: 16
