@@ -27,7 +27,6 @@ public class World : MonoBehaviour
     public float[,] noiseArray;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
-    private Queue<Vector3Int> chunkLoadQueue = new Queue<Vector3Int>();
     private Transform player;
     private Vector3Int lastPlayerChunkPos;
     public static World Instance { get; private set; }
@@ -67,11 +66,6 @@ public class World : MonoBehaviour
             UnloadDistantChunks(currentPlayerChunkPos);
             lastPlayerChunkPos = currentPlayerChunkPos;
         }
-
-        if (chunkLoadQueue.Count > 0)
-        {
-            CreateChunk(chunkLoadQueue.Dequeue());
-        }
     }
 
     public Vector3Int GetChunkPosition(Vector3 position)
@@ -93,9 +87,9 @@ public class World : MonoBehaviour
                 {
                     Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, useVerticalChunks ? y : 0, z);
 
-                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                    if (!chunks.ContainsKey(chunkPos))
                     {
-                        chunkLoadQueue.Enqueue(chunkPos);
+                        CreateChunk(chunkPos);
                     }
                 }
             }
