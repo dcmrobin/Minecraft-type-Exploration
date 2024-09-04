@@ -21,17 +21,17 @@ public class Voxel
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelWorldPos, float calculatedHeight, float caveNoiseValue)
+    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, float caveNoiseValue)
     {
-        VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
+        VoxelType type = voxelChunkPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
 
-        if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
+        if (type != VoxelType.Air && voxelChunkPos.y < calculatedHeight && voxelChunkPos.y >= calculatedHeight - 3)
             type = VoxelType.Dirt;
 
-        if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
+        if (type == VoxelType.Dirt && voxelChunkPos.y <= calculatedHeight && voxelChunkPos.y > calculatedHeight - 1)
             type = VoxelType.Grass;
 
-        if (caveNoiseValue > 0.45f && voxelWorldPos.y <= 100 + (caveNoiseValue * 20) || caveNoiseValue > 0.8f && voxelWorldPos.y > 100 + (caveNoiseValue * 20))
+        if (caveNoiseValue > 0.45f && voxelChunkPos.y <= 100 + (caveNoiseValue * 20) || caveNoiseValue > 0.8f && voxelChunkPos.y > 100 + (caveNoiseValue * 20))
             type = VoxelType.Air;
 
         return type;

@@ -48,10 +48,10 @@ public class Chunk : MonoBehaviour
             {
                 for (int y = 0; y < chunkHeight; y++)
                 {
-                    Vector3 voxelWorldPos = new Vector3(x, y, z);
+                    Vector3 voxelChunkPos = new Vector3(x, y, z);
                     float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
 
-                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelWorldPos, calculatedHeight, caveMap[x, y, z]);
+                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, caveMap[x, y, z]);
                     voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
                 }
             }
