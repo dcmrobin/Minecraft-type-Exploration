@@ -211,7 +211,7 @@ MonoBehaviour:
   nightColor: {r: 0, g: 0.012578605, b: 0.0754717, a: 0}
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 160
+  chunkHeight: 260
   maxHeight: 0.2
   noiseScale: 0.015
   mountainsCurve:
