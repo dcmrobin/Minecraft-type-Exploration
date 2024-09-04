@@ -84,7 +84,7 @@ public class Chunk : MonoBehaviour
         for (int x = 0; x < chunkSize; x++)
             for (int z = 0; z < chunkSize; z++)
                 for (int y = 0; y < chunkHeight; y++)
-                    noiseMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, (int)((y + chunkWorldPosition.y) / heightScale), (int)chunkWorldPosition.z + z, frequency) / 600;
+                    noiseMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, frequency) / 600;
 
         return noiseMap;
     }
@@ -95,24 +95,22 @@ public class Chunk : MonoBehaviour
         for (int x = 0; x < chunkSize; x++)
             for (int z = 0; z < chunkSize; z++)
                 for (int y = 0; y < chunkHeight; y++)
-                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, (y + chunkWorldPosition.y) / heightScale, chunkWorldPosition.z + z);
+                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
 
         return caveMap;
     }
 
-    public void CalculateLight()
-    {
-        Queue<Vector3Int> litVoxels = new();
+    void CalculateLight () {
 
-        // Iterate over the top layer of voxels in the chunk to initiate lighting
-        for (int x = 0; x < chunkSize; x++)
-        {
-            for (int z = 0; z < chunkSize; z++)
-            {
+        Queue<Vector3Int> litVoxels = new Queue<Vector3Int>();
+
+        for (int x = 0; x < World.Instance.chunkSize; x++) {
+            for (int z = 0; z < World.Instance.chunkSize; z++) {
+
                 float lightRay = 1f;
 
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
+                for (int y = World.Instance.chunkHeight - 1; y >= 0; y--) {
+
                     Voxel thisVoxel = voxels[x, y, z];
 
                     if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
@@ -123,71 +121,61 @@ public class Chunk : MonoBehaviour
                     voxels[x, y, z] = thisVoxel;
 
                     if (lightRay > World.lightFalloff)
-                    {
                         litVoxels.Enqueue(new Vector3Int(x, y, z));
-                    }
+
                 }
             }
         }
 
-        // Propagate light throughout the chunk and into neighboring chunks
         while (litVoxels.Count > 0)
         {
             Vector3Int v = litVoxels.Dequeue();
             for (int p = 0; p < 6; p++)
             {
-                Vector3Int neighborPos = Voxel.GetNeighbor(v, p);
-                Voxel neighborVoxel;
+                Vector3 currentVoxel = new();
 
-                if (IsWithinBounds(neighborPos))
+                switch (p)
                 {
-                    neighborVoxel = voxels[neighborPos.x, neighborPos.y, neighborPos.z];
+                    case 0:
+                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
+                        break;
+                    case 1:
+                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
+                        break;
+                    case 2:
+                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
+                        break;
+                    case 3:
+                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
+                        break;
+                    case 4:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
+                        break;
+                    case 5:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
+                        break;
+                }
+
+                Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
+
+                if (IsWithinBounds(v)) {
+                    if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
+                    {
+                        voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
+
+                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
+                        {
+                            litVoxels.Enqueue(neighbor);
+                        }
+                    }
                 }
                 else
                 {
-                    // Get the world position of the neighboring voxel
-                    Vector3Int worldNeighborPos = new Vector3Int(
-                        (int)(pos.x + neighborPos.x),
-                        (int)(pos.y + neighborPos.y),
-                        (int)(pos.z + neighborPos.z)
-                    );
-
-                    // Get the chunk at the neighboring position
-                    Vector3Int chunkPos = World.Instance.GetChunkPosition(worldNeighborPos);
-                    Chunk neighborChunk = World.Instance.GetChunkAt(chunkPos);
-
-                    if (neighborChunk != null)
-                    {
-                        // Get the local position in the neighboring chunk
-                        Vector3Int localNeighborPos = neighborPos;
-                        if (neighborPos.x < 0) localNeighborPos.x += chunkSize;
-                        if (neighborPos.x >= chunkSize) localNeighborPos.x -= chunkSize;
-                        if (neighborPos.y < 0) localNeighborPos.y += chunkHeight;
-                        if (neighborPos.y >= chunkHeight) localNeighborPos.y -= chunkHeight;
-                        if (neighborPos.z < 0) localNeighborPos.z += chunkSize;
-                        if (neighborPos.z >= chunkSize) localNeighborPos.z -= chunkSize;
-
-                        neighborVoxel = neighborChunk.GetVoxelSafe(localNeighborPos.x, localNeighborPos.y, localNeighborPos.z);
-                    }
-                    else
-                    {
-                        //Debug.Log($"{name} tried to get a neighbor chunk but couldn't find one");
-                        //name = "bruh i didn't find a neighbor chunkkkk";
-                        continue;
-                    }
-                }
-
-                if (neighborVoxel.globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
-                {
-                    neighborVoxel.globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
-
-                    if (neighborVoxel.globalLightPercentage > World.lightFalloff)
-                    {
-                        litVoxels.Enqueue(neighborPos);
-                    }
+                    //Debug.Log("out of bounds of chunk");
                 }
             }
         }
+
     }
 
     private bool IsWithinBounds(Vector3Int v)

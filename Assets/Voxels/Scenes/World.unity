@@ -209,10 +209,9 @@ MonoBehaviour:
   globalLightLevel: 1
   dayColor: {r: 0.5613208, g: 0.8401713, b: 1, a: 0}
   nightColor: {r: 0, g: 0.012578605, b: 0.0754717, a: 0}
-  useVerticalChunks: 0
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 16
+  chunkHeight: 160
   maxHeight: 0.2
   noiseScale: 0.015
   mountainsCurve:
@@ -354,7 +353,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
-  renderDistance: 7
+  renderDistance: 2
   noiseSeed: 1234
 --- !u!4 &1773224465
 Transform:

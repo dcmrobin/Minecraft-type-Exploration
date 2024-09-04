@@ -26,7 +26,6 @@ public class World : MonoBehaviour
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
     private Queue<Vector3Int> chunkLoadQueue = new Queue<Vector3Int>();
-    private Queue<Vector3Int> chunksToLight = new Queue<Vector3Int>();
     private Transform player;
     private Vector3Int lastPlayerChunkPos;
     public static World Instance { get; private set; }
@@ -71,15 +70,6 @@ public class World : MonoBehaviour
         {
             CreateChunk(chunkLoadQueue.Dequeue());
         }
-        //else
-        //{
-        //    if (chunksToLight.Count > 0)
-        //    {
-        //        Chunk chunk = GetChunkAt(chunksToLight.Dequeue());
-        //        //chunk.ResetChunk();
-        //        chunk.CalculateLight();
-        //    }
-        //}
     }
 
     public Vector3Int GetChunkPosition(Vector3 position)
@@ -95,17 +85,13 @@ public class World : MonoBehaviour
     {
         for (int x = -renderDistance; x <= renderDistance; x++)
         {
-            for (int y = renderDistance; y >= -renderDistance; y--)
+            for (int z = -renderDistance; z <= renderDistance; z++)
             {
-                for (int z = -renderDistance; z <= renderDistance; z++)
-                {
-                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
+                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
 
-                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
-                    {
-                        chunkLoadQueue.Enqueue(chunkPos);
-                        chunksToLight.Enqueue(chunkPos);
-                    }
+                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                {
+                    chunkLoadQueue.Enqueue(chunkPos);
                 }
             }
         }
@@ -114,7 +100,7 @@ public class World : MonoBehaviour
     private void CreateChunk(Vector3Int chunkPos)
     {
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
-        chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, chunkPos.y * chunkHeight, chunkPos.z * chunkSize);
+        chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
