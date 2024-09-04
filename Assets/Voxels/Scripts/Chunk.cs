@@ -100,17 +100,18 @@ public class Chunk : MonoBehaviour
         return caveMap;
     }
 
-    void CalculateLight () {
+    public void CalculateLight()
+    {
+        Queue<Vector3Int> litVoxels = new();
 
-        Queue<Vector3Int> litVoxels = new Queue<Vector3Int>();
-
-        for (int x = 0; x < World.Instance.chunkSize; x++) {
-            for (int z = 0; z < World.Instance.chunkSize; z++) {
-
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
                 float lightRay = 1f;
 
-                for (int y = World.Instance.chunkHeight - 1; y >= 0; y--) {
-
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
                     Voxel thisVoxel = voxels[x, y, z];
 
                     if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
@@ -121,8 +122,9 @@ public class Chunk : MonoBehaviour
                     voxels[x, y, z] = thisVoxel;
 
                     if (lightRay > World.lightFalloff)
+                    {
                         litVoxels.Enqueue(new Vector3Int(x, y, z));
-
+                    }
                 }
             }
         }
@@ -158,7 +160,7 @@ public class Chunk : MonoBehaviour
 
                 Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
 
-                if (IsWithinBounds(v)) {
+                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
                     if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
                     {
                         voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
@@ -175,12 +177,6 @@ public class Chunk : MonoBehaviour
                 }
             }
         }
-
-    }
-
-    private bool IsWithinBounds(Vector3Int v)
-    {
-        return v.x >= 0 && v.x < chunkSize && v.y >= 0 && v.y < chunkHeight && v.z >= 0 && v.z < chunkSize;
     }
 
     public void GenerateMesh()
