@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public class World : MonoBehaviour
 {
@@ -43,16 +44,16 @@ public class World : MonoBehaviour
         }
     }
 
-    void Start()
+    async void Start()
     {
         player = FindObjectOfType<PlayerController>().transform;
         lastPlayerChunkPos = GetChunkPosition(player.position);
-        LoadChunksAround(lastPlayerChunkPos);
+        await LoadChunksAround(lastPlayerChunkPos);
         Shader.SetGlobalFloat("minGlobalLightLevel", minLightLevel);
         Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
     }
 
-    void Update()
+    async void Update()
     {
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
         player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
@@ -61,14 +62,14 @@ public class World : MonoBehaviour
 
         if (currentPlayerChunkPos != lastPlayerChunkPos)
         {
-            LoadChunksAround(currentPlayerChunkPos);
+            await LoadChunksAround(currentPlayerChunkPos);
             UnloadDistantChunks(currentPlayerChunkPos);
             lastPlayerChunkPos = currentPlayerChunkPos;
         }
 
         if (chunkLoadQueue.Count > 0)
         {
-            CreateChunk(chunkLoadQueue.Dequeue());
+            await CreateChunk(chunkLoadQueue.Dequeue());
         }
     }
 
@@ -81,30 +82,32 @@ public class World : MonoBehaviour
         );
     }
 
-    private void LoadChunksAround(Vector3Int centerChunkPos)
+    private async Task LoadChunksAround(Vector3Int centerChunkPos)
     {
-        for (int x = -renderDistance; x <= renderDistance; x++)
-        {
-            for (int z = -renderDistance; z <= renderDistance; z++)
+        await Task.Run(() => {
+            for (int x = -renderDistance; x <= renderDistance; x++)
             {
-                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
-
-                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                for (int z = -renderDistance; z <= renderDistance; z++)
                 {
-                    chunkLoadQueue.Enqueue(chunkPos);
+                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
+
+                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                    {
+                        chunkLoadQueue.Enqueue(chunkPos);
+                    }
                 }
             }
-        }
+        });
     }
 
-    private void CreateChunk(Vector3Int chunkPos)
+    private async Task CreateChunk(Vector3Int chunkPos)
     {
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
         chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
+        await newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
 
         chunks[chunkPos] = newChunk;
     }
