@@ -32,17 +32,17 @@ public class Chunk : MonoBehaviour
 
     private async Task GenerateVoxelData(Vector3 chunkWorldPosition)
     {
-        float[,] baseNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.0055f);
-        float[,] lod1Map = Generate2DNoiseMap(chunkWorldPosition, 0.16f, 25);
-        float[,] biomeNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.004f);
-
-        float[,] mountainCurveValues = EvaluateNoiseMap(baseNoiseMap, mountainsCurve);
-        float[,] mountainBiomeCurveValues = EvaluateNoiseMap(biomeNoiseMap, mountainBiomeCurve);
-
-        float[,,] simplexMap = Generate3DNoiseMap(chunkWorldPosition, 0.025f, 1.5f);
-        float[,,] caveMap = GenerateCaveMap(chunkWorldPosition, 1.5f);
-
         await Task.Run(() => {
+            float[,] baseNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.0055f);
+            float[,] lod1Map = Generate2DNoiseMap(chunkWorldPosition, 0.16f, 25);
+            float[,] biomeNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.004f);
+
+            float[,] mountainCurveValues = EvaluateNoiseMap(baseNoiseMap, mountainsCurve);
+            float[,] mountainBiomeCurveValues = EvaluateNoiseMap(biomeNoiseMap, mountainBiomeCurve);
+
+            float[,,] simplexMap = Generate3DNoiseMap(chunkWorldPosition, 0.025f, 1.5f);
+            float[,,] caveMap = GenerateCaveMap(chunkWorldPosition, 1.5f);
+
             for (int y = 0; y < chunkHeight; y++)
             {
                 for (int x = 0; x < chunkSize; x++)
