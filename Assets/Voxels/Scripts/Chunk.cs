@@ -43,11 +43,11 @@ public class Chunk : MonoBehaviour
         float[,,] caveMap = GenerateCaveMap(chunkWorldPosition, 1.5f);
 
         await Task.Run(() => {
-            for (int x = 0; x < chunkSize; x++)
+            for (int y = 0; y < chunkHeight; y++)
             {
-                for (int z = 0; z < chunkSize; z++)
+                for (int x = 0; x < chunkSize; x++)
                 {
-                    for (int y = 0; y < chunkHeight; y++)
+                    for (int z = 0; z < chunkSize; z++)
                     {
                         Vector3 voxelChunkPos = new Vector3(x, y, z);
                         float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
@@ -83,9 +83,9 @@ public class Chunk : MonoBehaviour
     private float[,,] Generate3DNoiseMap(Vector3 chunkWorldPosition, float frequency, float heightScale)
     {
         float[,,] noiseMap = new float[chunkSize, chunkHeight, chunkSize];
-        for (int x = 0; x < chunkSize; x++)
-            for (int z = 0; z < chunkSize; z++)
-                for (int y = 0; y < chunkHeight; y++)
+        for (int y = 0; y < chunkHeight; y++)
+            for (int x = 0; x < chunkSize; x++)
+                for (int z = 0; z < chunkSize; z++)
                     noiseMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, frequency) / 600;
 
         return noiseMap;
@@ -94,9 +94,9 @@ public class Chunk : MonoBehaviour
     private float[,,] GenerateCaveMap(Vector3 chunkWorldPosition, float heightScale)
     {
         float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
-        for (int x = 0; x < chunkSize; x++)
-            for (int z = 0; z < chunkSize; z++)
-                for (int y = 0; y < chunkHeight; y++)
+        for (int y = 0; y < chunkHeight; y++)
+            for (int x = 0; x < chunkSize; x++)
+                for (int z = 0; z < chunkSize; z++)
                     caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
 
         return caveMap;
@@ -186,9 +186,9 @@ public class Chunk : MonoBehaviour
     public async Task GenerateMesh()
     {
         await Task.Run(() => {
-            for (int x = 0; x < chunkSize; x++)
+            for (int y = 0; y < chunkHeight; y++)
             {
-                for (int y = 0; y < chunkHeight; y++)
+                for (int x = 0; x < chunkSize; x++)
                 {
                     for (int z = 0; z < chunkSize; z++)
                     {
