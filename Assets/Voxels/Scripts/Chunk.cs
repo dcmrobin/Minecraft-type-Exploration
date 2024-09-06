@@ -34,7 +34,7 @@ public class Chunk : MonoBehaviour
     {
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
         float[,] lod1Map = new float[chunkSize, chunkSize];
-        float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
+        float[,] mountainBiomeNoiseMap = new float[chunkSize, chunkSize];
 
         float[,] mountainCurveValues = new float[chunkSize, chunkSize];
         float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
@@ -51,10 +51,10 @@ public class Chunk : MonoBehaviour
                     {
                         baseNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.0055f, (chunkWorldPosition.z + z) * 0.0055f);
                         lod1Map[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.16f, (chunkWorldPosition.z + z) * 0.16f) / 25;
-                        biomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
+                        mountainBiomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
 
                         mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                        mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
+                        mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(mountainBiomeNoiseMap[x, z]);
 
                         simplexMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, 0.025f) / 600;
                         caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
