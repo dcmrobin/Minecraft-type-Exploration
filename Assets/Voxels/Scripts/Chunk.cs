@@ -32,16 +32,35 @@ public class Chunk : MonoBehaviour
 
     private async Task GenerateVoxelData(Vector3 chunkWorldPosition)
     {
+        float[,] baseNoiseMap = new float[chunkSize, chunkSize];
+        float[,] lod1Map = new float[chunkSize, chunkSize];
+        float[,] biomeNoiseMap = new float[chunkSize, chunkSize];
+
+        float[,] mountainCurveValues = new float[chunkSize, chunkSize];
+        float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
+
+        float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];
+        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
+
         await Task.Run(() => {
-            float[,] baseNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.0055f);
-            float[,] lod1Map = Generate2DNoiseMap(chunkWorldPosition, 0.16f, 25);
-            float[,] biomeNoiseMap = Generate2DNoiseMap(chunkWorldPosition, 0.004f);
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int x = 0; x < chunkSize; x++)
+                {
+                    for (int z = 0; z < chunkSize; z++)
+                    {
+                        baseNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.0055f, (chunkWorldPosition.z + z) * 0.0055f);
+                        lod1Map[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.16f, (chunkWorldPosition.z + z) * 0.16f) / 25;
+                        biomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
 
-            float[,] mountainCurveValues = EvaluateNoiseMap(baseNoiseMap, mountainsCurve);
-            float[,] mountainBiomeCurveValues = EvaluateNoiseMap(biomeNoiseMap, mountainBiomeCurve);
+                        mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
+                        mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(biomeNoiseMap[x, z]);
 
-            float[,,] simplexMap = Generate3DNoiseMap(chunkWorldPosition, 0.025f, 1.5f);
-            float[,,] caveMap = GenerateCaveMap(chunkWorldPosition, 1.5f);
+                        simplexMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, 0.025f) / 600;
+                        caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
+                    }
+                }
+            }
 
             for (int y = 0; y < chunkHeight; y++)
             {
@@ -58,48 +77,6 @@ public class Chunk : MonoBehaviour
                 }
             }
         });
-    }
-
-    private float[,] Generate2DNoiseMap(Vector3 chunkWorldPosition, float frequency, float divisor = 1f)
-    {
-        float[,] noiseMap = new float[chunkSize, chunkSize];
-        for (int x = 0; x < chunkSize; x++)
-            for (int z = 0; z < chunkSize; z++)
-                noiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * frequency, (chunkWorldPosition.z + z) * frequency) / divisor;
-
-        return noiseMap;
-    }
-
-    private float[,] EvaluateNoiseMap(float[,] noiseMap, AnimationCurve curve)
-    {
-        float[,] evaluatedMap = new float[chunkSize, chunkSize];
-        for (int x = 0; x < chunkSize; x++)
-            for (int z = 0; z < chunkSize; z++)
-                evaluatedMap[x, z] = curve.Evaluate(noiseMap[x, z]);
-
-        return evaluatedMap;
-    }
-
-    private float[,,] Generate3DNoiseMap(Vector3 chunkWorldPosition, float frequency, float heightScale)
-    {
-        float[,,] noiseMap = new float[chunkSize, chunkHeight, chunkSize];
-        for (int y = 0; y < chunkHeight; y++)
-            for (int x = 0; x < chunkSize; x++)
-                for (int z = 0; z < chunkSize; z++)
-                    noiseMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, frequency) / 600;
-
-        return noiseMap;
-    }
-
-    private float[,,] GenerateCaveMap(Vector3 chunkWorldPosition, float heightScale)
-    {
-        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
-        for (int y = 0; y < chunkHeight; y++)
-            for (int x = 0; x < chunkSize; x++)
-                for (int z = 0; z < chunkSize; z++)
-                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
-
-        return caveMap;
     }
 
     public async Task CalculateLight()
