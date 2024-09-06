@@ -39,7 +39,7 @@ public class Voxel
 
     public static float CalculateHeight(int x, int z, int y, float[,] mountainCurveValues, float[,,] simplexMap, float[,] lod1Map, float maxHeight)
     {
-        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 400;
+        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 100;
         float calculatedHeight = normalizedNoiseValue * maxHeight * mountainCurveValues[x, z];
         return calculatedHeight + 150;
     }
