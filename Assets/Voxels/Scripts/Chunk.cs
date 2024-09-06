@@ -192,7 +192,14 @@ public class Chunk : MonoBehaviour
                 {
                     for (int z = 0; z < chunkSize; z++)
                     {
-                        ProcessVoxel(x, y, z);
+                        if (voxels[x, y, z].type == Voxel.VoxelType.Air)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            ProcessVoxel(x, y, z);
+                        }
                     }
                 }
             }
