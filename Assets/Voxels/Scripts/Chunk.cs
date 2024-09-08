@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using SimplexNoise;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 public class Chunk : MonoBehaviour
 {
@@ -30,8 +31,10 @@ public class Chunk : MonoBehaviour
         caveNoise.SetFrequency(0.02f);
     }
 
-    private async Task GenerateVoxelData(Vector3 chunkWorldPosition)
+    private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
+        //Stopwatch sw = new();
+        //sw.Start();
         float[,] baseNoiseMap = new float[chunkSize, chunkSize];
         float[,] lod1Map = new float[chunkSize, chunkSize];
         float[,] mountainBiomeNoiseMap = new float[chunkSize, chunkSize];
@@ -42,145 +45,147 @@ public class Chunk : MonoBehaviour
         float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];
         float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
 
-        await Task.Run(() => {
-            for (int y = 0; y < chunkHeight; y++)
-            {
-                for (int x = 0; x < chunkSize; x++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        baseNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.0055f, (chunkWorldPosition.z + z) * 0.0055f);
-                        lod1Map[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.16f, (chunkWorldPosition.z + z) * 0.16f) / 25;
-                        mountainBiomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
-
-                        mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                        mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(mountainBiomeNoiseMap[x, z]);
-
-                        simplexMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, 0.025f) / 600;
-                        caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
-                    }
-                }
-            }
-
-            for (int y = 0; y < chunkHeight; y++)
-            {
-                for (int x = 0; x < chunkSize; x++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        Vector3 voxelChunkPos = new Vector3(x, y, z);
-                        float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
-
-                        Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, caveMap[x, y, z]);
-                        voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
-                    }
-                }
-            }
-        });
-    }
-
-    public async Task CalculateLight()
-    {
-        Queue<Vector3Int> litVoxels = new();
-
-        await Task.Run(() => {
+        for (int y = 0; y < chunkHeight; y++)
+        {
             for (int x = 0; x < chunkSize; x++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    float lightRay = 1f;
+                    baseNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.0055f, (chunkWorldPosition.z + z) * 0.0055f);
+                    lod1Map[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.16f, (chunkWorldPosition.z + z) * 0.16f) / 25;
+                    mountainBiomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
 
-                    for (int y = chunkHeight - 1; y >= 0; y--)
+                    mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
+                    mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(mountainBiomeNoiseMap[x, z]);
+
+                    simplexMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, 0.025f) / 600;
+                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
+                }
+            }
+        }
+
+        for (int y = 0; y < chunkHeight; y++)
+        {
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    Vector3 voxelChunkPos = new Vector3(x, y, z);
+                    float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
+
+                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, caveMap[x, y, z]);
+                    voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
+                }
+            }
+        }
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
+    }
+
+    public void CalculateLight()
+    {
+        //Stopwatch sw = new();
+        //sw.Start();
+        Queue<Vector3Int> litVoxels = new();
+
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                float lightRay = 1f;
+
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    Voxel thisVoxel = voxels[x, y, z];
+
+                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
+                        lightRay = thisVoxel.transparency;
+
+                    thisVoxel.globalLightPercentage = lightRay;
+
+                    voxels[x, y, z] = thisVoxel;
+
+                    if (lightRay > World.lightFalloff)
                     {
-                        Voxel thisVoxel = voxels[x, y, z];
-
-                        if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
-                            lightRay = thisVoxel.transparency;
-
-                        thisVoxel.globalLightPercentage = lightRay;
-
-                        voxels[x, y, z] = thisVoxel;
-
-                        if (lightRay > World.lightFalloff)
-                        {
-                            litVoxels.Enqueue(new Vector3Int(x, y, z));
-                        }
+                        litVoxels.Enqueue(new Vector3Int(x, y, z));
                     }
                 }
             }
+        }
 
-            while (litVoxels.Count > 0)
+        while (litVoxels.Count > 0)
+        {
+            Vector3Int v = litVoxels.Dequeue();
+            for (int p = 0; p < 6; p++)
             {
-                Vector3Int v = litVoxels.Dequeue();
-                for (int p = 0; p < 6; p++)
+                Vector3 currentVoxel = new();
+
+                switch (p)
                 {
-                    Vector3 currentVoxel = new();
+                    case 0:
+                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
+                        break;
+                    case 1:
+                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
+                        break;
+                    case 2:
+                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
+                        break;
+                    case 3:
+                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
+                        break;
+                    case 4:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
+                        break;
+                    case 5:
+                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
+                        break;
+                }
 
-                    switch (p)
+                Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
+
+                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
+                    if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
                     {
-                        case 0:
-                            currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
-                            break;
-                        case 1:
-                            currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
-                            break;
-                        case 2:
-                            currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
-                            break;
-                        case 3:
-                            currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
-                            break;
-                        case 4:
-                            currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
-                            break;
-                        case 5:
-                            currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
-                            break;
-                    }
+                        voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
 
-                    Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
-
-                    if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
-                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
+                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
                         {
-                            voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
-
-                            if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
-                            {
-                                litVoxels.Enqueue(neighbor);
-                            }
+                            litVoxels.Enqueue(neighbor);
                         }
+                    }
+                }
+                else
+                {
+                    //Debug.Log("out of bounds of chunk");
+                }
+            }
+        }
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Lighting for {name} took {sw.ElapsedMilliseconds} milliseconds");
+    }
+
+    public void GenerateMesh()
+    {
+        //Stopwatch sw = new();
+        //sw.Start();
+        for (int y = 0; y < chunkHeight; y++)
+        {
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (voxels[x, y, z].type == Voxel.VoxelType.Air)
+                    {
+                        continue;
                     }
                     else
                     {
-                        //Debug.Log("out of bounds of chunk");
+                        ProcessVoxel(x, y, z);
                     }
                 }
             }
-        });
-    }
-
-    public async Task GenerateMesh()
-    {
-        await Task.Run(() => {
-            for (int y = 0; y < chunkHeight; y++)
-            {
-                for (int x = 0; x < chunkSize; x++)
-                {
-                    for (int z = 0; z < chunkSize; z++)
-                    {
-                        if (voxels[x, y, z].type == Voxel.VoxelType.Air)
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            ProcessVoxel(x, y, z);
-                        }
-                    }
-                }
-            }
-        });
+        }
 
         if (vertices.Count > 0) {
             Mesh mesh = new()
@@ -199,18 +204,22 @@ public class Chunk : MonoBehaviour
             // Apply a material or texture if needed
             meshRenderer.material = World.Instance.VoxelMaterial;
         }
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public async Task Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
+    public void Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
     {
+        //Stopwatch sw = new();
+        //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
         this.mountainsCurve = mountainsCurve;
         this.mountainBiomeCurve = mountainBiomeCurve;
         voxels = new Voxel[size, height, size];
 
-        await GenerateVoxelData(transform.position);
-        await CalculateLight();
+        GenerateVoxelData(transform.position);
+        CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -221,7 +230,9 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        await GenerateMesh(); // Call after ensuring all necessary components and data are set
+        GenerateMesh(); // Call after ensuring all necessary components and data are set
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
     private void ProcessVoxel(int x, int y, int z)

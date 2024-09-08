@@ -69,7 +69,7 @@ public class World : MonoBehaviour
 
         if (chunkLoadQueue.Count > 0)
         {
-            await CreateChunk(chunkLoadQueue.Dequeue());
+            CreateChunk(chunkLoadQueue.Dequeue());
         }
     }
 
@@ -100,14 +100,14 @@ public class World : MonoBehaviour
         });
     }
 
-    private async Task CreateChunk(Vector3Int chunkPos)
+    private void CreateChunk(Vector3Int chunkPos)
     {
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
         chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        await newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
+        newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
 
         chunks[chunkPos] = newChunk;
     }
