@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using System.Threading.Tasks;
 
 public class World : MonoBehaviour
 {
@@ -44,16 +43,16 @@ public class World : MonoBehaviour
         }
     }
 
-    async void Start()
+    void Start()
     {
         player = FindObjectOfType<PlayerController>().transform;
         lastPlayerChunkPos = GetChunkPosition(player.position);
-        await LoadChunksAround(lastPlayerChunkPos);
+        LoadChunksAround(lastPlayerChunkPos);
         Shader.SetGlobalFloat("minGlobalLightLevel", minLightLevel);
         Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
     }
 
-    async void Update()
+    void Update()
     {
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
         player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
@@ -62,7 +61,7 @@ public class World : MonoBehaviour
 
         if (currentPlayerChunkPos != lastPlayerChunkPos)
         {
-            await LoadChunksAround(currentPlayerChunkPos);
+            LoadChunksAround(currentPlayerChunkPos);
             UnloadDistantChunks(currentPlayerChunkPos);
             lastPlayerChunkPos = currentPlayerChunkPos;
         }
@@ -82,22 +81,20 @@ public class World : MonoBehaviour
         );
     }
 
-    private async Task LoadChunksAround(Vector3Int centerChunkPos)
+    private void LoadChunksAround(Vector3Int centerChunkPos)
     {
-        await Task.Run(() => {
-            for (int x = -renderDistance; x <= renderDistance; x++)
+        for (int x = -renderDistance; x <= renderDistance; x++)
+        {
+            for (int z = -renderDistance; z <= renderDistance; z++)
             {
-                for (int z = -renderDistance; z <= renderDistance; z++)
-                {
-                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
+                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
 
-                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
-                    {
-                        chunkLoadQueue.Enqueue(chunkPos);
-                    }
+                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                {
+                    chunkLoadQueue.Enqueue(chunkPos);
                 }
             }
-        });
+        }
     }
 
     private void CreateChunk(Vector3Int chunkPos)

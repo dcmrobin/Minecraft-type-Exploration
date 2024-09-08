@@ -1,10 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Collections;
 using Unity.Jobs;
 using SimplexNoise;
-using System.Threading.Tasks;
-using System.Diagnostics;
 
 public class Chunk : MonoBehaviour
 {
