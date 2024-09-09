@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 
 public class World : MonoBehaviour
@@ -99,6 +100,9 @@ public class World : MonoBehaviour
 
     private void CreateChunk(Vector3Int chunkPos)
     {
+        //Stopwatch sw = new();
+        //sw.Start();
+
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
         chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
@@ -107,6 +111,9 @@ public class World : MonoBehaviour
         newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
 
         chunks[chunkPos] = newChunk;
+
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Chunk creation at position {chunkPos} took {sw.ElapsedMilliseconds} milliseconds.");
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkPos)
