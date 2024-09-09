@@ -2,15 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Jobs;
 using System.Diagnostics;
-using SimplexNoise;
 
 public class Chunk : MonoBehaviour
 {
-    public AnimationCurve mountainsCurve;
-    public AnimationCurve mountainBiomeCurve;
     private Voxel[,,] voxels;
     private int chunkSize = 16;
     private int chunkHeight = 16;
+    private float noiseFrequency;
+    private float noiseAmplitude;
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
@@ -20,47 +19,15 @@ public class Chunk : MonoBehaviour
     private MeshCollider meshCollider;
 
     public Vector3 pos;
-    private FastNoiseLite caveNoise = new();
 
     private void Start() {
         pos = transform.position;
-
-        caveNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        caveNoise.SetFrequency(0.02f);
     }
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
         //Stopwatch sw = new();
         //sw.Start();
-        float[,] baseNoiseMap = new float[chunkSize, chunkSize];
-        float[,] lod1Map = new float[chunkSize, chunkSize];
-        float[,] mountainBiomeNoiseMap = new float[chunkSize, chunkSize];
-
-        float[,] mountainCurveValues = new float[chunkSize, chunkSize];
-        float[,] mountainBiomeCurveValues = new float[chunkSize, chunkSize];
-
-        float[,,] simplexMap = new float[chunkSize, chunkHeight, chunkSize];
-        float[,,] caveMap = new float[chunkSize, chunkHeight, chunkSize];
-
-        for (int y = 0; y < chunkHeight; y++)
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    baseNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.0055f, (chunkWorldPosition.z + z) * 0.0055f);
-                    lod1Map[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.16f, (chunkWorldPosition.z + z) * 0.16f) / 25;
-                    mountainBiomeNoiseMap[x, z] = Mathf.PerlinNoise((chunkWorldPosition.x + x) * 0.004f, (chunkWorldPosition.z + z) * 0.004f);
-
-                    mountainCurveValues[x, z] = mountainsCurve.Evaluate(baseNoiseMap[x, z]);
-                    mountainBiomeCurveValues[x, z] = mountainBiomeCurve.Evaluate(mountainBiomeNoiseMap[x, z]);
-
-                    simplexMap[x, y, z] = Noise.CalcPixel3D((int)chunkWorldPosition.x + x, y, (int)chunkWorldPosition.z + z, 0.025f) / 600;
-                    caveMap[x, y, z] = caveNoise.GetNoise(chunkWorldPosition.x + x, y, chunkWorldPosition.z + z);
-                }
-            }
-        }
 
         for (int y = 0; y < chunkHeight; y++)
         {
@@ -69,9 +36,9 @@ public class Chunk : MonoBehaviour
                 for (int z = 0; z < chunkSize; z++)
                 {
                     Vector3 voxelChunkPos = new Vector3(x, y, z);
-                    float calculatedHeight = Voxel.CalculateHeight(x, z, y, mountainCurveValues, simplexMap, lod1Map, World.Instance.maxHeight);
+                    float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / noiseFrequency, (chunkWorldPosition.z + z) / noiseFrequency) * noiseAmplitude;
 
-                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, caveMap[x, y, z]);
+                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
                     voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
                 }
             }
@@ -206,14 +173,14 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void Initialize(int size, int height, AnimationCurve mountainsCurve, AnimationCurve mountainBiomeCurve)
+    public void Initialize(int size, int height, float frequency, float amplitude)
     {
         //Stopwatch sw = new();
         //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
-        this.mountainsCurve = mountainsCurve;
-        this.mountainBiomeCurve = mountainBiomeCurve;
+        this.noiseFrequency = frequency;
+        this.noiseAmplitude = amplitude;
         voxels = new Voxel[size, height, size];
 
         GenerateVoxelData(transform.position);

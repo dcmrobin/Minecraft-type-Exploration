@@ -21,7 +21,7 @@ public class Voxel
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, float caveNoiseValue)
+    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight)
     {
         VoxelType type = voxelChunkPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
 
@@ -31,17 +31,7 @@ public class Voxel
         if (type == VoxelType.Dirt && voxelChunkPos.y <= calculatedHeight && voxelChunkPos.y > calculatedHeight - 1)
             type = VoxelType.Grass;
 
-        if (caveNoiseValue > 0.45f && voxelChunkPos.y <= 100 + (caveNoiseValue * 20) || caveNoiseValue > 0.8f && voxelChunkPos.y > 100 + (caveNoiseValue * 20))
-            type = VoxelType.Air;
-
         return type;
-    }
-
-    public static float CalculateHeight(int x, int z, int y, float[,] mountainCurveValues, float[,,] simplexMap, float[,] lod1Map, float maxHeight)
-    {
-        float normalizedNoiseValue = (mountainCurveValues[x, z] - simplexMap[x, y, z] + lod1Map[x, z]) * 100;
-        float calculatedHeight = normalizedNoiseValue * maxHeight * mountainCurveValues[x, z];
-        return calculatedHeight + 150;
     }
 
     public static Vector2 GetTileOffset(VoxelType type, int faceIndex)

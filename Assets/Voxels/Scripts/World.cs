@@ -18,11 +18,10 @@ public class World : MonoBehaviour
     public int chunkSize = 16;
     public int chunkHeight = 16;
     public float maxHeight = 0.2f;
-    public float noiseScale = 0.015f;
-    public AnimationCurve mountainsCurve;
-    public AnimationCurve mountainBiomeCurve;
+    public float noiseFrequency = 50f;
+    public float noiseAmplitude = 30;
     public Material VoxelMaterial;
-    public int renderDistance = 5; // The maximum distance from the player to keep chunks
+    public int renderDistance = 5;
     public float[,] noiseArray;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
@@ -108,7 +107,7 @@ public class World : MonoBehaviour
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight, mountainsCurve, mountainBiomeCurve);
+        newChunk.Initialize(chunkSize, chunkHeight, noiseFrequency, noiseAmplitude);
 
         chunks[chunkPos] = newChunk;
 
