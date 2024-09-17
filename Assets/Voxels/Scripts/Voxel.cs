@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class Voxel
+public struct Voxel
 {
     public enum VoxelType { Air, Stone, Dirt, Grass } // Add more types as needed
     public Vector3 position;
@@ -9,8 +9,6 @@ public class Voxel
     public bool isActive;
     public float globalLightPercentage;
     public float transparency;
-
-    public Voxel() : this(Vector3.zero, VoxelType.Air, false) { }
 
     public Voxel(Vector3 position, VoxelType type, bool isActive)
     {
