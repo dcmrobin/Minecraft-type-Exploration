@@ -31,20 +31,29 @@ public class Chunk : MonoBehaviour
         //Stopwatch sw = new();
         //sw.Start();
 
-        for (int y = 0; y < chunkHeight; y++)
+        GenerateJob generateJob = new()
         {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    Vector3 voxelChunkPos = new Vector3(x, y, z);
-                    float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / noiseFrequency, (chunkWorldPosition.z + z) / noiseFrequency) * noiseAmplitude;
+            chunkHeight = chunkHeight,
+            chunkSize = chunkSize,
+            frequency = noiseFrequency,
+            amplitude = noiseAmplitude,
+            chunkWorldPosition = chunkWorldPosition,
+            voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob)
+        };
 
-                    Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
-                    voxels[x, y, z] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
-                }
-            }
+        JobHandle handle = generateJob.Schedule(voxels.Length, 64);
+        handle.Complete();
+
+        for (int i = 0; i < generateJob.voxels.Length; i++)
+        {
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            voxels[x, y, z] = generateJob.voxels[i];
         }
+
+        generateJob.voxels.Dispose();
+
         //sw.Stop();
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
@@ -280,5 +289,30 @@ public class Chunk : MonoBehaviour
             uvs.Clear();
             colors.Clear();
         }
+    }
+}
+
+[BurstCompile]
+public struct GenerateJob : IJobParallelFor
+{
+    public int chunkHeight;
+    public int chunkSize;
+    public float frequency;
+    public float amplitude;
+    public Vector3 chunkWorldPosition;
+    public NativeArray<Voxel> voxels;
+
+    public void Execute(int index)
+    {
+        int x = index % chunkSize;
+        int y = (index / chunkSize) % chunkHeight;
+        int z = index / (chunkSize * chunkHeight);
+        int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
+
+        Vector3 voxelChunkPos = new Vector3(x, y, z);
+        float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
+
+        Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
+        voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
     }
 }
