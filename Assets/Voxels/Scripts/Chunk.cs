@@ -228,6 +228,7 @@ public struct GenerateJob : IJob
 
     public void Execute()
     {
+        // Voxel position calculation
         for (int index = 0; index < voxels.Length; index++)
         {
             int x = index % chunkSize;
@@ -235,7 +236,6 @@ public struct GenerateJob : IJob
             int z = index / (chunkSize * chunkHeight);
             int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
 
-            // Voxel position calculation
             Vector3 voxelChunkPos = new Vector3(x, y, z);
             float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
     
@@ -244,7 +244,6 @@ public struct GenerateJob : IJob
         }
 
         // Voxel light calculation
-
         for (int x = 0; x < chunkSize; x++)
         {
             for (int z = 0; z < chunkSize; z++)
