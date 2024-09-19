@@ -4,6 +4,7 @@ using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
 using System.Diagnostics;
+using VoxelEngine;
 
 public class Chunk : MonoBehaviour
 {
@@ -12,6 +13,7 @@ public class Chunk : MonoBehaviour
     private int chunkHeight = 16;
     private float noiseFrequency;
     private float noiseAmplitude;
+    private float lightFalloff;
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
@@ -37,11 +39,13 @@ public class Chunk : MonoBehaviour
             chunkSize = chunkSize,
             frequency = noiseFrequency,
             amplitude = noiseAmplitude,
+            lightFalloff = lightFalloff,
             chunkWorldPosition = chunkWorldPosition,
-            voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob)
+            voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob),
+            litVoxels = new NativeQueue<Vector3Int>(Allocator.TempJob)
         };
 
-        JobHandle handle = generateJob.Schedule(voxels.Length, 64);
+        JobHandle handle = generateJob.Schedule();
         handle.Complete();
 
         for (int i = 0; i < generateJob.voxels.Length; i++)
@@ -53,92 +57,10 @@ public class Chunk : MonoBehaviour
         }
 
         generateJob.voxels.Dispose();
+        generateJob.litVoxels.Dispose();
 
         //sw.Stop();
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
-    }
-
-    public void CalculateLight()
-    {
-        //Stopwatch sw = new();
-        //sw.Start();
-        Queue<Vector3Int> litVoxels = new();
-
-        for (int x = 0; x < chunkSize; x++)
-        {
-            for (int z = 0; z < chunkSize; z++)
-            {
-                float lightRay = 1f;
-
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
-                    Voxel thisVoxel = voxels[x, y, z];
-
-                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
-                        lightRay = thisVoxel.transparency;
-
-                    thisVoxel.globalLightPercentage = lightRay;
-
-                    voxels[x, y, z] = thisVoxel;
-
-                    if (lightRay > World.lightFalloff)
-                    {
-                        litVoxels.Enqueue(new Vector3Int(x, y, z));
-                    }
-                }
-            }
-        }
-
-        while (litVoxels.Count > 0)
-        {
-            Vector3Int v = litVoxels.Dequeue();
-            for (int p = 0; p < 6; p++)
-            {
-                Vector3 currentVoxel = new();
-
-                switch (p)
-                {
-                    case 0:
-                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
-                        break;
-                    case 1:
-                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
-                        break;
-                    case 2:
-                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
-                        break;
-                    case 3:
-                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
-                        break;
-                    case 4:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
-                        break;
-                    case 5:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
-                        break;
-                }
-
-                Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
-
-                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
-                    if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
-                    {
-                        voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
-
-                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
-                        {
-                            litVoxels.Enqueue(neighbor);
-                        }
-                    }
-                }
-                else
-                {
-                    //Debug.Log("out of bounds of chunk");
-                }
-            }
-        }
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Lighting for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
     public void GenerateMesh()
@@ -184,18 +106,18 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void Initialize(int size, int height, float frequency, float amplitude)
+    public void Initialize(int size, int height)
     {
         //Stopwatch sw = new();
         //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
-        this.noiseFrequency = frequency;
-        this.noiseAmplitude = amplitude;
+        this.noiseFrequency = World.Instance.noiseFrequency;
+        this.noiseAmplitude = World.Instance.noiseAmplitude;
+        this.lightFalloff = World.lightFalloff;
         voxels = new Voxel[size, height, size];
 
         GenerateVoxelData(transform.position);
-        CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -293,26 +215,115 @@ public class Chunk : MonoBehaviour
 }
 
 [BurstCompile]
-public struct GenerateJob : IJobParallelFor
+public struct GenerateJob : IJob
 {
     public int chunkHeight;
     public int chunkSize;
     public float frequency;
     public float amplitude;
+    public float lightFalloff;
     public Vector3 chunkWorldPosition;
     public NativeArray<Voxel> voxels;
+    public NativeQueue<Vector3Int> litVoxels;
 
-    public void Execute(int index)
+    public void Execute()
     {
-        int x = index % chunkSize;
-        int y = (index / chunkSize) % chunkHeight;
-        int z = index / (chunkSize * chunkHeight);
-        int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
+        for (int index = 0; index < voxels.Length; index++)
+        {
+            int x = index % chunkSize;
+            int y = (index / chunkSize) % chunkHeight;
+            int z = index / (chunkSize * chunkHeight);
+            int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
 
-        Vector3 voxelChunkPos = new Vector3(x, y, z);
-        float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
+            // Voxel position calculation
+            Vector3 voxelChunkPos = new Vector3(x, y, z);
+            float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
+    
+            Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
+            voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
+        }
 
-        Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
-        voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
+        // Voxel light calculation
+
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                float lightRay = 1f;
+
+                // Process from the top of the chunk to the bottom
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
+                    Voxel thisVoxel = voxels[voxelIndex];
+
+                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
+                    {
+                        lightRay = thisVoxel.transparency;
+                    }
+
+                    thisVoxel.globalLightPercentage = lightRay;
+                    voxels[voxelIndex] = thisVoxel;
+
+                    if (lightRay > lightFalloff)
+                    {
+                        // Add voxel to the flood-fill queue if it can propagate light
+                        litVoxels.Enqueue(new Vector3Int(x, y, z));
+                    }
+                }
+            }
+        }
+
+        // Flood-fill the light across neighbors
+        while (litVoxels.Count > 0)
+        {
+            Vector3Int v = litVoxels.Dequeue();
+            int voxelIndex = v.x + v.y * chunkSize + v.z * chunkSize * chunkHeight;
+            Voxel sourceVoxel = voxels[voxelIndex];
+
+            for (int p = 0; p < 6; p++)
+            {
+                Vector3Int neighbor = GetNeighbor(v, p);
+                int neighborVoxelIndex = neighbor.x + neighbor.y * chunkSize + neighbor.z * chunkSize * chunkHeight;
+
+                if (IsInsideChunk(neighbor, chunkSize, chunkHeight))
+                {
+                    Voxel neighborVoxel = voxels[neighborVoxelIndex];
+
+                    // Check if the neighbor can be lit by this voxel
+                    if (neighborVoxel.globalLightPercentage < sourceVoxel.globalLightPercentage - lightFalloff)
+                    {
+                        neighborVoxel.globalLightPercentage = sourceVoxel.globalLightPercentage - lightFalloff;
+                        voxels[neighborVoxelIndex] = neighborVoxel;
+
+                        if (neighborVoxel.globalLightPercentage > lightFalloff)
+                        {
+                            litVoxels.Enqueue(neighbor);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private readonly bool IsInsideChunk(Vector3Int position, int chunkSize, int chunkHeight)
+    {
+        return position.x >= 0 && position.x < chunkSize &&
+               position.y >= 0 && position.y < chunkHeight &&
+               position.z >= 0 && position.z < chunkSize;
+    }
+
+    private readonly Vector3Int GetNeighbor(Vector3Int current, int direction)
+    {
+        return direction switch
+        {
+            0 => new Vector3Int(current.x, current.y + 1, current.z), // Top
+            1 => new Vector3Int(current.x, current.y - 1, current.z), // Bottom
+            2 => new Vector3Int(current.x - 1, current.y, current.z), // Left
+            3 => new Vector3Int(current.x + 1, current.y, current.z), // Right
+            4 => new Vector3Int(current.x, current.y, current.z + 1), // Front
+            5 => new Vector3Int(current.x, current.y, current.z - 1), // Back
+            _ => current
+        };
     }
 }

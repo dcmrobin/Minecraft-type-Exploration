@@ -10,12 +10,12 @@ public struct Voxel
     public float globalLightPercentage;
     public float transparency;
 
-    public Voxel(Vector3 position, VoxelType type, bool isActive)
+    public Voxel(Vector3 position, VoxelType type, bool isActive, float globalLightPercentage)
     {
         this.position = position;
         this.type = type;
         this.isActive = isActive;
-        this.globalLightPercentage = 0f;
+        this.globalLightPercentage = globalLightPercentage;
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 

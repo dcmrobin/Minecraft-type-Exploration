@@ -107,7 +107,7 @@ public class World : MonoBehaviour
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight, noiseFrequency, noiseAmplitude);
+        newChunk.Initialize(chunkSize, chunkHeight);
 
         chunks[chunkPos] = newChunk;
 
