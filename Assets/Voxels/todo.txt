@@ -1,2 +1,4 @@
 I think why some of the chunk faces are still there even though they are hidden in the world is because when it checks for chunk neighbors, the next chunk along hasn't been generated yet, so the chunk checking for neighbors registers that as not a chunk there, and therefore keeps it's face there.
 How to fix this ^ : maybe in the start method of chunk.cs, make it so that it makes the neighbor chunk re run it's iterate voxels method?
+
+wait a sec maybe the dictionary of chunks is having the chunks' positions be incrementing/decrementing by 1 on whatever axis each chunk is being generated on, when in reality the actual position is getting incremented by more like 16 or something
