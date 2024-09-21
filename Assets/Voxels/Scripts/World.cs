@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public class World : MonoBehaviour
 {
@@ -52,7 +53,7 @@ public class World : MonoBehaviour
         Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
     }
 
-    void Update()
+    async void Update()
     {
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
         player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
@@ -68,7 +69,7 @@ public class World : MonoBehaviour
 
         if (chunkLoadQueue.Count > 0)
         {
-            CreateChunk(chunkLoadQueue.Dequeue());
+            await CreateChunk(chunkLoadQueue.Dequeue());
         }
     }
 
@@ -97,7 +98,7 @@ public class World : MonoBehaviour
         }
     }
 
-    private void CreateChunk(Vector3Int chunkPos)
+    private async Task CreateChunk(Vector3Int chunkPos)
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -107,7 +108,7 @@ public class World : MonoBehaviour
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight);
+        await newChunk.Initialize(chunkSize, chunkHeight);
 
         chunks[chunkPos] = newChunk;
 

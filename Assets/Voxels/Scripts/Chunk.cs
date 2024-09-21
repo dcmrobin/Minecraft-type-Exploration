@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using VoxelEngine;
 
@@ -63,27 +64,29 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void GenerateMesh()
+    public async Task GenerateMesh()
     {
         //Stopwatch sw = new();
         //sw.Start();
-        for (int y = 0; y < chunkHeight; y++)
-        {
-            for (int x = 0; x < chunkSize; x++)
+        await Task.Run(() => {
+            for (int y = 0; y < chunkHeight; y++)
             {
-                for (int z = 0; z < chunkSize; z++)
+                for (int x = 0; x < chunkSize; x++)
                 {
-                    if (voxels[x, y, z].type == Voxel.VoxelType.Air)
+                    for (int z = 0; z < chunkSize; z++)
                     {
-                        continue;
-                    }
-                    else
-                    {
-                        ProcessVoxel(x, y, z);
+                        if (voxels[x, y, z].type == Voxel.VoxelType.Air)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            ProcessVoxel(x, y, z);
+                        }
                     }
                 }
             }
-        }
+        });
 
         if (vertices.Count > 0) {
             Mesh mesh = new()
@@ -106,7 +109,7 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void Initialize(int size, int height)
+    public async Task Initialize(int size, int height)
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -128,15 +131,14 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        GenerateMesh(); // Call after ensuring all necessary components and data are set
+        await GenerateMesh(); // Call after ensuring all necessary components and data are set
         //sw.Stop();
         //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
     private void ProcessVoxel(int x, int y, int z)
     {
-        if (voxels == null || x < 0 || x >= voxels.GetLength(0) || 
-            y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
+        if (voxels == null || x < 0 || x >= voxels.GetLength(0) || y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
         {
             return; // Skip processing if the array is not initialized or indices are out of bounds
         }
