@@ -211,7 +211,7 @@ MonoBehaviour:
   nightColor: {r: 0, g: 0.012578605, b: 0.0754717, a: 0}
   worldSize: 5
   chunkSize: 16
-  chunkHeight: 260
+  chunkHeight: 16
   maxHeight: 0.2
   noiseFrequency: 50
   noiseAmplitude: 30

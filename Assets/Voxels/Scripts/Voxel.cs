@@ -19,14 +19,15 @@ public struct Voxel
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight)
+    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks)
     {
-        VoxelType type = voxelChunkPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
+        Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
+        VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
 
-        if (type != VoxelType.Air && voxelChunkPos.y < calculatedHeight && voxelChunkPos.y >= calculatedHeight - 3)
+        if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
             type = VoxelType.Dirt;
 
-        if (type == VoxelType.Dirt && voxelChunkPos.y <= calculatedHeight && voxelChunkPos.y > calculatedHeight - 1)
+        if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
             type = VoxelType.Grass;
 
         return type;

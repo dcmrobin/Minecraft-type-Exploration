@@ -15,6 +15,7 @@ public class World : MonoBehaviour
     public static float lightFalloff = 0.08f;
 
     [Header("World")]
+    public bool useVerticalChunks = true;
     public int worldSize = 5; 
     public int chunkSize = 16;
     public int chunkHeight = 16;
@@ -55,6 +56,8 @@ public class World : MonoBehaviour
 
     async void Update()
     {
+        chunkHeight = useVerticalChunks ? 16 : 260;
+
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
         player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
 
@@ -84,15 +87,36 @@ public class World : MonoBehaviour
 
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
-        for (int x = -renderDistance; x <= renderDistance; x++)
+        if (useVerticalChunks)
         {
-            for (int z = -renderDistance; z <= renderDistance; z++)
+            for (int y = -renderDistance; y <= renderDistance; y++)
             {
-                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
-
-                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                for (int x = -renderDistance; x <= renderDistance; x++)
                 {
-                    chunkLoadQueue.Enqueue(chunkPos);
+                    for (int z = -renderDistance; z <= renderDistance; z++)
+                    {
+                        Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
+        
+                        if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                        {
+                            chunkLoadQueue.Enqueue(chunkPos);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int x = -renderDistance; x <= renderDistance; x++)
+            {
+                for (int z = -renderDistance; z <= renderDistance; z++)
+                {
+                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
+        
+                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                    {
+                        chunkLoadQueue.Enqueue(chunkPos);
+                    }
                 }
             }
         }
@@ -104,7 +128,7 @@ public class World : MonoBehaviour
         //sw.Start();
 
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
-        chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, 0, chunkPos.z * chunkSize);
+        chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, useVerticalChunks ? chunkPos.y * chunkHeight : 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();

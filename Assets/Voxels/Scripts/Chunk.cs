@@ -64,6 +64,7 @@ public class Chunk : MonoBehaviour
 
         GenerateJob generateJob = new()
         {
+            useVerticalChunks = World.Instance.useVerticalChunks,
             chunkHeight = chunkHeight,
             chunkSize = chunkSize,
             frequency = noiseFrequency,
@@ -229,6 +230,7 @@ public class Chunk : MonoBehaviour
 [BurstCompile]
 public struct GenerateJob : IJob
 {
+    public bool useVerticalChunks;
     public int chunkHeight;
     public int chunkSize;
     public float frequency;
@@ -244,14 +246,15 @@ public struct GenerateJob : IJob
         for (int index = 0; index < voxels.Length; index++)
         {
             int x = index % chunkSize;
-            int y = (index / chunkSize) % chunkHeight;
+            int y = (index % (chunkSize * chunkHeight)) / chunkSize;
             int z = index / (chunkSize * chunkHeight);
             int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
 
             Vector3 voxelChunkPos = new Vector3(x, y, z);
             float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
+            calculatedHeight += useVerticalChunks ? 150 : 0;
     
-            Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight);
+            Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks);
             voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
         }
 
