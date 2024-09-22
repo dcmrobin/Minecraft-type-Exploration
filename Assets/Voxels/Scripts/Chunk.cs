@@ -200,24 +200,6 @@ public class Chunk : MonoBehaviour
         return !voxels[x, y, z].isActive;
     }
 
-    public bool IsVoxelActiveAt(Vector3 localPosition)
-    {
-        // Round the local position to get the nearest voxel index
-        int x = Mathf.RoundToInt(localPosition.x);
-        int y = Mathf.RoundToInt(localPosition.y);
-        int z = Mathf.RoundToInt(localPosition.z);
-
-        // Check if the indices are within the bounds of the voxel array
-        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
-        {
-            // Return the active state of the voxel at these indices
-            return voxels[x, y, z].isActive;
-        }
-
-        // If out of bounds, consider the voxel inactive
-        return false;
-    }
-
     private Voxel GetVoxelSafe(int x, int y, int z)
     {
         if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
