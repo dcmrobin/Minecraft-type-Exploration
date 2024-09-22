@@ -9,6 +9,8 @@ using VoxelEngine;
 
 public class Chunk : MonoBehaviour
 {
+    public Chunk[] neighbors = new Chunk[6];
+
     private Voxel[,,] voxels;
     private int chunkSize = 16;
     private int chunkHeight = 16;
@@ -27,6 +29,32 @@ public class Chunk : MonoBehaviour
 
     private void Start() {
         pos = transform.position;
+    }
+
+    private void Update() {
+        if (neighbors[0] == null || neighbors[1] == null || neighbors[2] == null || neighbors[3] == null || neighbors[4] == null || neighbors[5] == null)
+        {
+            CheckForNeighbors();
+        }
+    }
+
+    public void CheckForNeighbors()
+    {
+        Vector3Int[] neighborDirections = new Vector3Int[]
+        {
+            new Vector3Int(0, 1, 0),  // Top
+            new Vector3Int(0, -1, 0), // Bottom
+            new Vector3Int(-1, 0, 0), // Left
+            new Vector3Int(1, 0, 0),  // Right
+            new Vector3Int(0, 0, 1),  // Front
+            new Vector3Int(0, 0, -1)  // Back
+        };
+
+        for (int i = 0; i < neighborDirections.Length; i++)
+        {
+            Vector3Int neighborPos = World.Instance.GetChunkPosition(transform.position) + neighborDirections[i];
+            neighbors[i] = World.Instance.GetChunkAt(neighborPos);
+        }
     }
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
