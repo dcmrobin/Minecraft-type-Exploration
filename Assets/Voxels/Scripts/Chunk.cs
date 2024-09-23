@@ -84,6 +84,12 @@ public class Chunk : MonoBehaviour
             int y = (i / chunkSize) % chunkHeight;
             int z = i / (chunkSize * chunkHeight);
             voxels[x, y, z] = generateJob.voxels[i];
+
+            //if (Random.value > 0.99 && voxels[x, y - 1 < 0 ? y : y - 1, z].type == Voxel.VoxelType.Grass)
+            //{
+            //    Structure testStructure = new(voxels, Vector3Int.FloorToInt(voxels[x, y, z].position), Structure.StructureList.Test);
+            //    testStructure.GenerateStructure();
+            //}
         }
 
         generateJob.voxels.Dispose();
