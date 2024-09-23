@@ -22,6 +22,24 @@ public struct Voxel
     public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks)
     {
         Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
+
+        // Calculate the 3D Perlin noise for caves
+        float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
+        float caveThreshold = 0.3f;       // Threshold to determine if it's a cave
+        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency, voxelWorldPos.z * caveNoiseFrequency) 
+                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) 
+                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency);
+
+        // Normalize the noise value
+        caveNoise /= 3f;
+
+        // If the noise value is below the threshold, make it a cave (Air)
+        if (caveNoise < caveThreshold)
+        {
+            return VoxelType.Air;
+        }
+
+        // Normal terrain height-based voxel type determination
         VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
 
         if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
