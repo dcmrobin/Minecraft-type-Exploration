@@ -15,6 +15,7 @@ public class World : MonoBehaviour
     public static float lightFalloff = 0.08f;
 
     [Header("World")]
+    public int chunksPerFrame = 5; // Number of chunks to load per frame
     public bool useVerticalChunks = true;
     public int worldSize = 5; 
     public int chunkSize = 16;
@@ -70,9 +71,14 @@ public class World : MonoBehaviour
             lastPlayerChunkPos = currentPlayerChunkPos;
         }
 
-        if (chunkLoadQueue.Count > 0)
+        // Load a specified number of chunks per frame
+        int chunksToLoad = Mathf.Min(chunkLoadQueue.Count, chunksPerFrame);
+        for (int i = 0; i < chunksToLoad; i++)
         {
-            await CreateChunk(chunkLoadQueue.Dequeue());
+            if (chunkLoadQueue.Count > 0)
+            {
+                await CreateChunk(chunkLoadQueue.Dequeue());
+            }
         }
     }
 
