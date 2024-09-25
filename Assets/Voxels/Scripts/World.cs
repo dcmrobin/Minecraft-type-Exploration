@@ -170,4 +170,33 @@ public class World : MonoBehaviour
         chunks.TryGetValue(position, out Chunk chunk);
         return chunk;
     }
+
+    public Voxel GetVoxelInWorld(Vector3Int voxelWorldPosition)
+    {
+        // Step 1: Get the chunk position that contains this voxel
+        Vector3Int chunkPosition = GetChunkPosition(voxelWorldPosition);
+
+        // Step 2: Fetch the chunk at this position
+        Chunk chunk = GetChunkAt(chunkPosition);
+
+        // Step 3: If the chunk is null (not loaded), return a default voxel (e.g., air)
+        if (chunk == null)
+        {
+            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false, 0f);
+        }
+
+        // Step 4: Convert the world position to local position within the chunk
+        int localX = voxelWorldPosition.x - (chunkPosition.x * chunkSize);
+        int localY = voxelWorldPosition.y - (chunkPosition.y * chunkHeight);
+        int localZ = voxelWorldPosition.z - (chunkPosition.z * chunkSize);
+
+        // Step 5: Ensure the local coordinates are within bounds
+        if (localX < 0 || localX >= chunkSize || localY < 0 || localY >= chunkHeight || localZ < 0 || localZ >= chunkSize)
+        {
+            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false, 0f);
+        }
+
+        // Step 6: Return the voxel from the chunk's voxel array
+        return chunk.voxels[localX, localY, localZ];
+    }
 }

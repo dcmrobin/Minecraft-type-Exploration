@@ -11,10 +11,10 @@ public struct GenerateJob : IJob
     public int chunkSize;
     public float frequency;
     public float amplitude;
-    public float lightFalloff;
+    //public float lightFalloff;
     public Vector3 chunkWorldPosition;
     public NativeArray<Voxel> voxels;
-    public NativeQueue<Vector3Int> litVoxels;
+    //public NativeQueue<Vector3Int> litVoxels;
 
     public void Execute()
     {
@@ -35,7 +35,7 @@ public struct GenerateJob : IJob
         }
 
         // Voxel light calculation
-        for (int x = 0; x < chunkSize; x++)
+        /*for (int x = 0; x < chunkSize; x++)
         {
             for (int z = 0; z < chunkSize; z++)
             {
@@ -76,7 +76,7 @@ public struct GenerateJob : IJob
                 Vector3Int neighbor = GetNeighbor(v, p);
                 int neighborVoxelIndex = neighbor.x + neighbor.y * chunkSize + neighbor.z * chunkSize * chunkHeight;
 
-                if (IsInsideChunk(neighbor, chunkSize, chunkHeight))
+                if (IsInsideChunk(neighbor))
                 {
                     Voxel neighborVoxel = voxels[neighborVoxelIndex];
 
@@ -92,11 +92,15 @@ public struct GenerateJob : IJob
                         }
                     }
                 }
+                else
+                {
+                    //
+                }
             }
-        }
+        }*/
     }
 
-    private readonly bool IsInsideChunk(Vector3Int position, int chunkSize, int chunkHeight)
+    private readonly bool IsInsideChunk(Vector3Int position)
     {
         return position.x >= 0 && position.x < chunkSize &&
                position.y >= 0 && position.y < chunkHeight &&
