@@ -300,6 +300,26 @@ public class Chunk : MonoBehaviour
         return voxels[x, y, z];
     }
 
+    public Vector3Int NeighborXYZ(Vector3Int pos)
+    {
+        Vector3Int neighborPos = new();
+
+        if (pos.x < 0)
+            neighborPos.x = chunkSize - 1;
+        else if (pos.x > chunkSize - 1)
+            neighborPos.x = 0;
+        else if (pos.y < 0)
+            neighborPos.y = chunkHeight - 1;
+        else if (pos.y > chunkHeight - 1)
+            neighborPos.y = 0;
+        else if (pos.z < 0)
+            neighborPos.z = chunkSize - 1;
+        else if (pos.z > chunkSize - 1)
+            neighborPos.z = 0;
+
+        return neighborPos;
+    }
+
     public void ResetChunk() {
         // Clear voxel data
         voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
