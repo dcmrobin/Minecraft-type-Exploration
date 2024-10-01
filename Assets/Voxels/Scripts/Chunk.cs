@@ -26,7 +26,7 @@ public class Chunk : MonoBehaviour
 
     public Vector3 pos;
 
-    private void Start() {
+    private void Awake() {
         pos = transform.position;
     }
 
