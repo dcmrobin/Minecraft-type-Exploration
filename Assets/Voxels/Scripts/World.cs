@@ -55,7 +55,7 @@ public class World : MonoBehaviour
         //Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
     }
 
-    async void Update()
+    void Update()
     {
         chunkHeight = useVerticalChunks ? 16 : 260;
 
@@ -77,7 +77,7 @@ public class World : MonoBehaviour
         {
             if (chunkLoadQueue.Count > 0)
             {
-                await CreateChunk(chunkLoadQueue.Dequeue());
+                CreateChunk(chunkLoadQueue.Dequeue());
             }
         }
     }
@@ -128,7 +128,7 @@ public class World : MonoBehaviour
         }
     }
 
-    private async Task CreateChunk(Vector3Int chunkPos)
+    private void CreateChunk(Vector3Int chunkPos)
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -138,7 +138,7 @@ public class World : MonoBehaviour
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        await newChunk.Initialize(chunkSize, chunkHeight);
+        newChunk.Initialize(chunkSize, chunkHeight);
 
         chunks[chunkPos] = newChunk;
 

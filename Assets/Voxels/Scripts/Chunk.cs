@@ -180,29 +180,27 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Lighting for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }*/
 
-    public async Task GenerateMesh()
+    public void GenerateMesh()
     {
         //Stopwatch sw = new();
         //sw.Start();
-        await Task.Run(() => {
-            for (int y = 0; y < chunkHeight; y++)
+        for (int y = 0; y < chunkHeight; y++)
+        {
+            for (int x = 0; x < chunkSize; x++)
             {
-                for (int x = 0; x < chunkSize; x++)
+                for (int z = 0; z < chunkSize; z++)
                 {
-                    for (int z = 0; z < chunkSize; z++)
+                    if (voxels[x, y, z].type == Voxel.VoxelType.Air)
                     {
-                        if (voxels[x, y, z].type == Voxel.VoxelType.Air)
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            ProcessVoxel(x, y, z);
-                        }
+                        continue;
+                    }
+                    else
+                    {
+                        ProcessVoxel(x, y, z);
                     }
                 }
             }
-        });
+        }
 
         if (vertices.Count > 0) {
             Mesh mesh = new()
@@ -225,7 +223,7 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public async Task Initialize(int size, int height)
+    public void Initialize(int size, int height)
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -248,7 +246,7 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        await GenerateMesh(); // Call after ensuring all necessary components and data are set
+        GenerateMesh(); // Call after ensuring all necessary components and data are set
         //sw.Stop();
         //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
