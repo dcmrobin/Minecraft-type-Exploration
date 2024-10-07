@@ -5,14 +5,14 @@ using System.Threading.Tasks;
 
 public class World : MonoBehaviour
 {
-    [Header("Lighting")]
+    /*[Header("Lighting")]
     [Range(0f, 1f)]
     public float globalLightLevel;
     public Color dayColor;
     public Color nightColor;
     public static float minLightLevel = 0.1f;
     public static float maxLightLevel = 0.9f;
-    public static float lightFalloff = 0.08f;
+    public static float lightFalloff = 0.08f;*/
 
     [Header("World")]
     public int chunksPerFrame = 5; // Number of chunks to load per frame
@@ -51,16 +51,16 @@ public class World : MonoBehaviour
         player = FindObjectOfType<PlayerController>().transform;
         lastPlayerChunkPos = GetChunkPosition(player.position);
         LoadChunksAround(lastPlayerChunkPos);
-        Shader.SetGlobalFloat("minGlobalLightLevel", minLightLevel);
-        Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
+        //Shader.SetGlobalFloat("minGlobalLightLevel", minLightLevel);
+        //Shader.SetGlobalFloat("maxGlobalLightLevel", maxLightLevel);
     }
 
     async void Update()
     {
         chunkHeight = useVerticalChunks ? 16 : 260;
 
-        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
+        //Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
+        //player.GetComponentInChildren<Camera>().backgroundColor = Color.Lerp(nightColor, dayColor, globalLightLevel);
 
         Vector3Int currentPlayerChunkPos = GetChunkPosition(player.position);
 

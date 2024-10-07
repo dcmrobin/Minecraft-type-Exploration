@@ -15,7 +15,7 @@ public class Chunk : MonoBehaviour
     private int chunkHeight = 16;
     private float noiseFrequency;
     private float noiseAmplitude;
-    private float lightFalloff;
+    //private float lightFalloff;
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
@@ -97,7 +97,7 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void CalculateLight()
+    /*public void CalculateLight()
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -178,7 +178,7 @@ public class Chunk : MonoBehaviour
         }
         //sw.Stop();
         //UnityEngine.Debug.Log($"Lighting for {name} took {sw.ElapsedMilliseconds} milliseconds");
-    }
+    }*/
 
     public async Task GenerateMesh()
     {
@@ -233,11 +233,11 @@ public class Chunk : MonoBehaviour
         this.chunkHeight = height;
         this.noiseFrequency = World.Instance.noiseFrequency;
         this.noiseAmplitude = World.Instance.noiseAmplitude;
-        this.lightFalloff = World.lightFalloff;
+        //this.lightFalloff = World.lightFalloff;
         voxels = new Voxel[size, height, size];
 
         GenerateVoxelData(transform.position);
-        CalculateLight();
+        //CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }

@@ -68,41 +68,41 @@
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_AlienPlanet.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise SIMD\FastNoiseSIMDUnity.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise\FastNoiseMeshWarp.cs" />
-    <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\VoxelEngineManager.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorBase.cs" />
-    <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\FreeCam.cs" />
-    <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_CrackedSurface.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise\FastNoiseUnity.cs" />
-    <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\ObjectPool.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkGameObject.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\DAGMain.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerator.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorSIMD.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_FloatingIslands.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\MeshBuilder.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Desert.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\HalfHelper.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Voxel.cs" />
-    <Compile Include="Assets\Voxels\Scripts\Structures.cs" />
     <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\MouseOrbit.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Vector3i.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Caves.cs" />
-    <Compile Include="Assets\Voxels\Scripts\GenerateJob.cs" />
-    <Compile Include="Assets\Tests\Voxel DAG\Scripts\VoxelNode.cs" />
     <Compile Include="Assets\Voxels\Scripts\World.cs" />
-    <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Half.cs" />
     <Compile Include="Assets\Tests\One Million Voxels\Scripts\CubeRenderer.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGenerator_GrassLand.cs" />
     <Compile Include="Assets\Voxels\Scripts\Chunk.cs" />
     <Compile Include="Assets\FastNoise Unity\FastNoise SIMD\FastNoiseSIMD.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkQueue.cs" />
+    <Compile Include="Assets\Voxels\Scripts\PlayerController.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorBase.cs" />
+    <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\FreeCam.cs" />
+    <Compile Include="Assets\Voxels\Scripts\CameraFlyThrough.cs" />
+    <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseDAGMeshGen.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\ObjectPool.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerator.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGeneratorSIMD.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Desert.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Structures.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Caves.cs" />
+    <Compile Include="Assets\Voxels\Scripts\GenerateJob.cs" />
+    <Compile Include="Assets\Tests\Voxel DAG\Scripts\VoxelNode.cs" />
+    <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
+    <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Half.cs" />
     <Compile Include="Assets\Voxels\Scripts\FastNoiseLite.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Chunk.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
-    <Compile Include="Assets\FastNoise Unity\Voxel Engine\ChunkQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Voxels\StandardBlockShader.shader" />
@@ -951,8 +951,20 @@
       <HintPath>C:\Program Files\Unity\Hub\Editor\2022.3.10f1\Editor\Data\NetStandard\compat\2.1.0\shims\netfx\System.Xml.Serialization.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.EditorCoroutines.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.EditorCoroutines.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.VisualEffectGraph.Runtime">
+      <HintPath>Library\ScriptAssemblies\Unity.VisualEffectGraph.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.Burst.Editor">
@@ -973,6 +985,10 @@
     </Reference>
     <Reference Include="Unity.VisualScripting.Shared.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.Shared.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.ShaderGraph.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.ShaderGraph.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VisualStudio.Editor">
@@ -1003,6 +1019,14 @@
       <HintPath>Library\ScriptAssemblies\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.Core.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.VisualEffectGraph.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.VisualEffectGraph.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.VisualScripting.Flow">
       <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.Flow.dll</HintPath>
       <Private>False</Private>
@@ -1027,6 +1051,10 @@
       <HintPath>Library\ScriptAssemblies\Unity.Splines.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.HighDefinition.Config.Runtime">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.HighDefinition.Config.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.VisualScripting.SettingsProvider.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.SettingsProvider.Editor.dll</HintPath>
       <Private>False</Private>
@@ -1035,16 +1063,20 @@
       <HintPath>Library\ScriptAssemblies\Unity.Performance.Profile-Analyzer.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.ShaderLibrary">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.Core.ShaderLibrary.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.TestTools.CodeCoverage.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.TestTools.CodeCoverage.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.TestTools.CodeCoverage.Editor.OpenCover.Model">
-      <HintPath>Library\ScriptAssemblies\Unity.TestTools.CodeCoverage.Editor.OpenCover.Model.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Unity.Collections">
       <HintPath>Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.TestTools.CodeCoverage.Editor.OpenCover.Model">
+      <HintPath>Library\ScriptAssemblies\Unity.TestTools.CodeCoverage.Editor.OpenCover.Model.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VisualScripting.State.Editor">
@@ -1071,12 +1103,24 @@
       <HintPath>Library\ScriptAssemblies\Unity.TextMeshPro.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.Searcher.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.Searcher.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.VisualScripting.State">
       <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.State.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VSCode.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.VSCode.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.HighDefinition.Runtime">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.HighDefinition.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.HighDefinition.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.HighDefinition.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
