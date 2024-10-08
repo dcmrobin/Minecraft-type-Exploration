@@ -1,7 +1,8 @@
-using UnityEngine;
-using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Burst;
+using Unity.Jobs;
 using Unity.Collections;
+using UnityEngine;
 
 [BurstCompile]
 public struct GenerateJob : IJob
@@ -11,113 +12,99 @@ public struct GenerateJob : IJob
     public int chunkSize;
     public float frequency;
     public float amplitude;
-    //public float lightFalloff;
     public Vector3 chunkWorldPosition;
     public NativeArray<Voxel> voxels;
-    //public NativeQueue<Vector3Int> litVoxels;
+
+    // Worm parameters
+    public int wormCount; // Number of worms per chunk
+    public float wormLength; // Length of each worm
+    public float wormRadius; // Radius of the worm tunnel
+
+    public uint randomSeed; // Random seed for thread-safe random numbers
 
     public void Execute()
     {
-        // Voxel position calculation
+        // Initialize thread-safe random generator
+        var random = new Unity.Mathematics.Random(randomSeed);
+
+        GenerateTerrain();
+        GeneratePerlinWorms(ref random);
+    }
+
+    private void GenerateTerrain()
+    {
+        // Terrain generation logic, similar to what you already have
         for (int index = 0; index < voxels.Length; index++)
         {
             int x = index % chunkSize;
             int y = (index % (chunkSize * chunkHeight)) / chunkSize;
             int z = index / (chunkSize * chunkHeight);
-            int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
 
             Vector3 voxelChunkPos = new Vector3(x, y, z);
             float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
             calculatedHeight += useVerticalChunks ? 150 : 0;
-    
+
             Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks);
-            voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
+            voxels[index] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
         }
+    }
 
-        // Voxel light calculation
-        /*for (int x = 0; x < chunkSize; x++)
+    private void GeneratePerlinWorms(ref Unity.Mathematics.Random random)
+    {
+        // Loop to create multiple worms
+        for (int i = 0; i < wormCount; i++)
         {
-            for (int z = 0; z < chunkSize; z++)
+            // Generate random starting position influenced by Perlin noise
+            int startX = random.NextInt(0, chunkSize);
+            int startY = random.NextInt(0, chunkHeight);
+            int startZ = random.NextInt(0, chunkSize);
+
+            float noiseValue = Mathf.PerlinNoise((chunkWorldPosition.x + startX) / frequency, (chunkWorldPosition.z + startZ) / frequency);
+            Vector3 wormPosition = new Vector3(startX, Mathf.Floor(noiseValue * amplitude), startZ);
+
+            // Generate a random direction vector using the thread-safe random
+            Vector3 wormDirection = random.NextFloat3Direction() * wormRadius; // Same as insideUnitSphere but thread-safe
+
+            for (int step = 0; step < wormLength; step++)
             {
-                float lightRay = 1f;
+                // Carve a spherical tunnel at the current worm position
+                CarveTunnel(wormPosition, wormRadius);
 
-                // Process from the top of the chunk to the bottom
-                for (int y = chunkHeight - 1; y >= 0; y--)
+                // Update worm's position by moving in the direction
+                wormPosition += wormDirection;
+
+                // Use Perlin noise to adjust the direction smoothly
+                wormDirection.x += Mathf.PerlinNoise(wormPosition.x * frequency, wormPosition.z * frequency) - 0.5f;
+                wormDirection.y += Mathf.PerlinNoise(wormPosition.y * frequency, wormPosition.z * frequency) - 0.5f;
+                wormDirection.z += Mathf.PerlinNoise(wormPosition.x * frequency, wormPosition.y * frequency) - 0.5f;
+
+                wormDirection = wormDirection.normalized; // Keep the movement smooth
+            }
+        }
+    }
+
+    private void CarveTunnel(Vector3 position, float radius)
+    {
+        // Carve out voxels within a spherical radius of the worm's current position
+        for (int x = (int)(position.x - radius); x <= (int)(position.x + radius); x++)
+        {
+            for (int y = (int)(position.y - radius); y <= (int)(position.y + radius); y++)
+            {
+                for (int z = (int)(position.z - radius); z <= (int)(position.z + radius); z++)
                 {
-                    int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
-                    Voxel thisVoxel = voxels[voxelIndex];
-
-                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
+                    float dist = Vector3.Distance(new Vector3(x, y, z), position);
+                    if (dist <= radius && IsInsideChunk(x, y, z))
                     {
-                        lightRay = thisVoxel.transparency;
-                    }
-
-                    thisVoxel.globalLightPercentage = lightRay;
-                    voxels[voxelIndex] = thisVoxel;
-
-                    if (lightRay > lightFalloff)
-                    {
-                        // Add voxel to the flood-fill queue if it can propagate light
-                        litVoxels.Enqueue(new Vector3Int(x, y, z));
+                        int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
+                        voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), Voxel.VoxelType.Air, false, 0);
                     }
                 }
             }
         }
-
-        // Flood-fill the light across neighbors
-        while (litVoxels.Count > 0)
-        {
-            Vector3Int v = litVoxels.Dequeue();
-            int voxelIndex = v.x + v.y * chunkSize + v.z * chunkSize * chunkHeight;
-            Voxel sourceVoxel = voxels[voxelIndex];
-
-            for (int p = 0; p < 6; p++)
-            {
-                Vector3Int neighbor = GetNeighbor(v, p);
-                int neighborVoxelIndex = neighbor.x + neighbor.y * chunkSize + neighbor.z * chunkSize * chunkHeight;
-
-                if (IsInsideChunk(neighbor))
-                {
-                    Voxel neighborVoxel = voxels[neighborVoxelIndex];
-
-                    // Check if the neighbor can be lit by this voxel
-                    if (neighborVoxel.globalLightPercentage < sourceVoxel.globalLightPercentage - lightFalloff)
-                    {
-                        neighborVoxel.globalLightPercentage = sourceVoxel.globalLightPercentage - lightFalloff;
-                        voxels[neighborVoxelIndex] = neighborVoxel;
-
-                        if (neighborVoxel.globalLightPercentage > lightFalloff)
-                        {
-                            litVoxels.Enqueue(neighbor);
-                        }
-                    }
-                }
-                else
-                {
-                    //
-                }
-            }
-        }*/
     }
 
-    private readonly bool IsInsideChunk(Vector3Int position)
+    private bool IsInsideChunk(int x, int y, int z)
     {
-        return position.x >= 0 && position.x < chunkSize &&
-               position.y >= 0 && position.y < chunkHeight &&
-               position.z >= 0 && position.z < chunkSize;
-    }
-
-    private readonly Vector3Int GetNeighbor(Vector3Int current, int direction)
-    {
-        return direction switch
-        {
-            0 => new Vector3Int(current.x, current.y + 1, current.z), // Top
-            1 => new Vector3Int(current.x, current.y - 1, current.z), // Bottom
-            2 => new Vector3Int(current.x - 1, current.y, current.z), // Left
-            3 => new Vector3Int(current.x + 1, current.y, current.z), // Right
-            4 => new Vector3Int(current.x, current.y, current.z + 1), // Front
-            5 => new Vector3Int(current.x, current.y, current.z - 1), // Back
-            _ => current
-        };
+        return x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize;
     }
 }

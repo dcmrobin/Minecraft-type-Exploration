@@ -55,7 +55,7 @@ public class Chunk : MonoBehaviour
     //    }
     //}
 
-    private void GenerateVoxelData(Vector3 chunkWorldPosition)
+    /*private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
         //Stopwatch sw = new();
         //sw.Start();
@@ -95,7 +95,7 @@ public class Chunk : MonoBehaviour
 
         //sw.Stop();
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
-    }
+    }*/
 
     /*public void CalculateLight()
     {
@@ -225,19 +225,46 @@ public class Chunk : MonoBehaviour
 
     public void Initialize(int size, int height)
     {
-        //Stopwatch sw = new();
-        //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
         this.noiseFrequency = World.Instance.noiseFrequency;
         this.noiseAmplitude = World.Instance.noiseAmplitude;
-        //this.lightFalloff = World.lightFalloff;
+
         voxels = new Voxel[size, height, size];
 
-        GenerateVoxelData(transform.position);
-        //CalculateLight();
+        GenerateJob generateJob = new()
+        {
+            useVerticalChunks = World.Instance.useVerticalChunks,
+            chunkHeight = chunkHeight,
+            chunkSize = chunkSize,
+            frequency = noiseFrequency,
+            amplitude = noiseAmplitude,
+            chunkWorldPosition = transform.position,
+            voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob),
 
-        meshFilter = GetComponent<MeshFilter>();
+            // Worm parameters
+            wormCount = 2,
+            wormLength = 100,
+            wormRadius = 2.0f,
+
+            // Thread-safe random seed
+            randomSeed = (uint)Random.Range(1, int.MaxValue) // Generate seed on the main thread
+        };
+
+        JobHandle handle = generateJob.Schedule();
+        handle.Complete();
+
+        // Apply the generated voxel data to the chunk
+        for (int i = 0; i < generateJob.voxels.Length; i++)
+        {
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            voxels[x, y, z] = generateJob.voxels[i];
+        }
+
+        generateJob.voxels.Dispose();
+
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
 
         meshRenderer = GetComponent<MeshRenderer>();
@@ -246,9 +273,7 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        GenerateMesh(); // Call after ensuring all necessary components and data are set
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
+        GenerateMesh();
     }
 
     private void ProcessVoxel(int x, int y, int z)
