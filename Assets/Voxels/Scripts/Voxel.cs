@@ -25,16 +25,18 @@ public struct Voxel
 
         // Calculate the 3D Perlin noise for caves
         float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
-        float caveThreshold = 0.3f;       // Threshold to determine if it's a cave
-        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency, voxelWorldPos.z * caveNoiseFrequency) 
-                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) 
-                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency);
+        float caveThreshold = -0.3f;       // Threshold to determine if it's a cave
+        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency, voxelWorldPos.z * caveNoiseFrequency) * 2f - 1f 
+                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) * 2f - 1f 
+                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency) * 2f - 1f;
+
+        float remappedCaveNoise = caveNoise;
 
         // Normalize the noise value
-        caveNoise /= 3f;
+        remappedCaveNoise /= 3f;
 
         // If the noise value is below the threshold, make it a cave (Air)
-        if (caveNoise < caveThreshold)
+        if (remappedCaveNoise < caveThreshold)
         {
             return VoxelType.Air;
         }
