@@ -27,8 +27,8 @@ public struct Voxel
         float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
         float caveThreshold = -0.3f;       // Threshold to determine if it's a cave
         float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency, voxelWorldPos.z * caveNoiseFrequency) * 2f - 1f 
-                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) * 2f - 1f 
-                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency) * 2f - 1f;
+                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) * 2f - 1f // *2-1 to make it between -1 and 1
+                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency) * 2f - 1f;// instead of between 0 and 1
 
         float remappedCaveNoise = caveNoise;
 
