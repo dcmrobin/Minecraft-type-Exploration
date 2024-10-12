@@ -57,6 +57,7 @@ public class Chunk : MonoBehaviour
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
+        int rand = Random.Range(-2, 2);
         //Stopwatch sw = new();
         //sw.Start();
 
@@ -71,6 +72,7 @@ public class Chunk : MonoBehaviour
             chunkWorldPosition = chunkWorldPosition,
             voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob),
             //litVoxels = new NativeQueue<Vector3Int>(Allocator.TempJob)
+            randInt = rand
         };
 
         JobHandle handle = generateJob.Schedule();

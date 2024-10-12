@@ -1,9 +1,10 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Mathematics;
 
 public struct Voxel
 {
-    public enum VoxelType { Air, Stone, Dirt, Grass } // Add more types as needed
+    public enum VoxelType { Air, Stone, Dirt, Grass, Deepslate } // Add more types as needed
     public Vector3 position;
     public VoxelType type;
     public bool isActive;
@@ -19,27 +20,37 @@ public struct Voxel
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks)
+    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt)
     {
         Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
 
         // Calculate the 3D Perlin noise for caves
         float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
+        float caveSizeMultiplier = 1;
         float caveThreshold = -0.3f;       // Threshold to determine if it's a cave
-        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency, voxelWorldPos.z * caveNoiseFrequency) * 2f - 1f 
-                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency, voxelWorldPos.x * caveNoiseFrequency) * 2f - 1f // *2-1 to make it between -1 and 1
-                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency, voxelWorldPos.y * caveNoiseFrequency) * 2f - 1f;// instead of between 0 and 1
+        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.z * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f 
+                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.x * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f // *2-1 to make it between -1 and 1
+                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.y * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f;// instead of between 0 and 1
+        float wormCaveThreshold = 0.12f;
+        float wormCaveSizeMultiplier = 1.5f;
+        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.z * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) 
+                        + Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.x * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) // *2-1 to make it between -1 and 1
+                        + Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.y * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f);// instead of between 0 and 1
+        
 
         float remappedCaveNoise = caveNoise;
+        float remappedWormCaveNoise = wormCaveNoise;
 
         // Normalize the noise value
         remappedCaveNoise /= 3f;
+        remappedWormCaveNoise /=3;
 
         // If the noise value is below the threshold, make it a cave (Air)
         if (remappedCaveNoise < caveThreshold)
-        {
             return VoxelType.Air;
-        }
+
+        if (remappedWormCaveNoise < wormCaveThreshold)
+            return VoxelType.Air;
 
         // Normal terrain height-based voxel type determination
         VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
@@ -49,6 +60,9 @@ public struct Voxel
 
         if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
             type = VoxelType.Grass;
+        
+        if (voxelWorldPos.y <= -230 - randInt && type != VoxelType.Air)
+            type = VoxelType.Deepslate;
 
         return type;
     }
@@ -69,6 +83,13 @@ public struct Voxel
 
             case VoxelType.Stone:
                 return new Vector2(0.25f, 0.5f);
+
+            case VoxelType.Deepslate:
+                if (faceIndex == 0) // Top face
+                    return new Vector2(0.5f, 0.5f);
+                if (faceIndex == 1) // Bottom face
+                    return new Vector2(0.5f, 0.5f);
+                return new Vector2(0.5f, 0.75f); // Side faces
 
             // Add more cases for other types...
 
