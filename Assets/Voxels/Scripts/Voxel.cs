@@ -20,34 +20,21 @@ public struct Voxel
         this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt)
+    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt, int seed)
     {
         Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
 
         // Calculate the 3D Perlin noise for caves
         float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
-        float caveSizeMultiplier = 1;
-        float caveThreshold = -0.3f;       // Threshold to determine if it's a cave
-        float caveNoise = Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.z * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f 
-                        + Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.x * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f // *2-1 to make it between -1 and 1
-                        + Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency / caveSizeMultiplier, voxelWorldPos.y * caveNoiseFrequency / caveSizeMultiplier) * 2f - 1f;// instead of between 0 and 1
-        float wormCaveThreshold = 0.12f;
-        float wormCaveSizeMultiplier = 1.5f;
-        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.x * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.z * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) 
-                        + Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.y * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.x * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise(voxelWorldPos.z * caveNoiseFrequency / wormCaveSizeMultiplier, voxelWorldPos.y * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f);// instead of between 0 and 1
-        
+        float wormCaveThreshold = 0.06f;
+        float wormCaveSizeMultiplier = 5f;
+        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) 
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) // *2-1 to make it between -1 and 1
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f);// instead of between 0 and 1
 
-        float remappedCaveNoise = caveNoise;
         float remappedWormCaveNoise = wormCaveNoise;
 
-        // Normalize the noise value
-        remappedCaveNoise /= 3f;
         remappedWormCaveNoise /=3;
-
-        // If the noise value is below the threshold, make it a cave (Air)
-        if (remappedCaveNoise < caveThreshold)
-            return VoxelType.Air;
 
         if (remappedWormCaveNoise < wormCaveThreshold)
             return VoxelType.Air;

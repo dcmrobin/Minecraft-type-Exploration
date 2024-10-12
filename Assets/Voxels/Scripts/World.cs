@@ -32,7 +32,8 @@ public class World : MonoBehaviour
     private Transform player;
     private Vector3Int lastPlayerChunkPos;
     public static World Instance { get; private set; }
-    public int noiseSeed;
+    public string noiseSeedString;
+    [HideInInspector] public int noiseSeed;
 
     void Awake()
     {
@@ -48,6 +49,14 @@ public class World : MonoBehaviour
 
     void Start()
     {
+        string noEmptySpacesNoiseSeed = noiseSeedString.Replace(" ", string.Empty);
+        if (noEmptySpacesNoiseSeed == string.Empty)
+        {
+            noEmptySpacesNoiseSeed = Random.Range(0, 10000000).ToString();
+            noiseSeedString = noEmptySpacesNoiseSeed;
+        }
+        noiseSeed = System.Convert.ToInt32(noEmptySpacesNoiseSeed);
+
         player = FindObjectOfType<PlayerController>().transform;
         lastPlayerChunkPos = GetChunkPosition(player.position);
         LoadChunksAround(lastPlayerChunkPos);

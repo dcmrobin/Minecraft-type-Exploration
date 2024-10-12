@@ -15,6 +15,7 @@ public struct GenerateJob : IJob
     public Vector3 chunkWorldPosition;
     public NativeArray<Voxel> voxels;
     public int randInt;
+    public int worldSeed;
     //public NativeQueue<Vector3Int> litVoxels;
 
     public void Execute()
@@ -28,10 +29,10 @@ public struct GenerateJob : IJob
             int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
 
             Vector3 voxelChunkPos = new Vector3(x, y, z);
-            float calculatedHeight = Mathf.PerlinNoise((chunkWorldPosition.x + x) / frequency, (chunkWorldPosition.z + z) / frequency) * amplitude;
+            float calculatedHeight = Mathf.PerlinNoise(((chunkWorldPosition.x + x) + worldSeed) / frequency, ((chunkWorldPosition.z + z) + worldSeed) / frequency) * amplitude;
             calculatedHeight += useVerticalChunks ? 150 : 0;
     
-            Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt);
+            Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
             voxels[voxelIndex] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
         }
 
