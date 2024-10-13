@@ -100,6 +100,7 @@
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\VoxelNode.cs" />
     <Compile Include="Assets\Voxels\Scripts\Voxel.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Half.cs" />
+    <Compile Include="Assets\Tests\Noise Map\NoiseTextureGenerator.cs" />
     <Compile Include="Assets\Voxels\Scripts\FastNoiseLite.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Chunk.cs" />
     <Compile Include="Assets\Tests\Voxel DAG\Scripts\SparseVoxelDAG.cs" />
