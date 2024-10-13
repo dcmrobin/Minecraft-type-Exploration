@@ -586,7 +586,7 @@ MonoBehaviour:
   noiseAmplitude: 30
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
   renderDistance: 2
-  noiseSeedString: 0
+  noiseSeedString: 
   noiseSeed: 0
 --- !u!4 &1773224465
 Transform:
