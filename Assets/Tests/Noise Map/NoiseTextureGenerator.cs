@@ -73,21 +73,21 @@ public class NoiseTextureGenerator : MonoBehaviour
         float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise(wormNoiseX, wormNoiseY) * 2f - 1f) - wormBias;
         float PandVNoise = perlinNoise - wormCaveNoise;
 
-        float remappedNoise = 0;
+        float noise = 0;
 
         if (noiseType == NoiseType.PerlinNoise)
         {
-            remappedNoise = perlinNoise;
+            noise = perlinNoise;
         }
         else if (noiseType == NoiseType.Worms)
         {
-            remappedNoise = wormCaveNoise;
+            noise = wormCaveNoise;
         }
         else if (noiseType == NoiseType.PeaksAndValleys)
         {
-            remappedNoise = PandVNoise;
+            noise = PandVNoise;
         }
 
-        return remappedNoise;
+        return noise;
     }
 }

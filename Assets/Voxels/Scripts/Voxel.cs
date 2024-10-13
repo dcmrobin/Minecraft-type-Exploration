@@ -25,18 +25,16 @@ public struct Voxel
         Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
 
         // Calculate the 3D Perlin noise for caves
-        float caveNoiseFrequency = 0.07f;  // Adjust frequency to control cave density
-        float wormCaveThreshold = 0.06f;
-        float wormCaveSizeMultiplier = 5f;
-        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) 
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * caveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * caveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f);// instead of between 0 and 1
+        float wormCaveNoiseFrequency = 0.01f;  // Adjust frequency to control cave density
+        float wormCaveSizeMultiplier = 1.15f;
+        float wormBias = -0.43f;
+        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias;// instead of between 0 and 1
 
-        float remappedWormCaveNoise = wormCaveNoise;
+        float remappedWormCaveNoise = wormCaveNoise / 3;
 
-        remappedWormCaveNoise /=3;
-
-        if (remappedWormCaveNoise < wormCaveThreshold)
+        if (remappedWormCaveNoise < 0.5)
             return VoxelType.Air;
 
         // Normal terrain height-based voxel type determination

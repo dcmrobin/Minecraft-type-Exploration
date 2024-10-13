@@ -595,9 +595,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   width: 256
   height: 256
-  caveNoiseFrequency: 0.07
-  wormCaveThreshold: 0.06
-  wormCaveSizeMultiplier: 5
+  noiseType: 2
+  wormCaveNoiseFrequency: 0.03
+  perlinNoiseFrequency: 0.04
+  wormBias: -0.43
+  perlinBias: -0.81
+  wormCaveSizeMultiplier: 1.15
+  perlinSizeMultiplier: 5
   seed: 0
   colorGradient:
     serializedVersion: 2
