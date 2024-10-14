@@ -25,7 +25,7 @@ public struct Voxel
         Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
 
         // Calculate the 3D Perlin noise for caves
-        float wormCaveNoiseFrequency = 0.01f;  // Adjust frequency to control cave density
+        float wormCaveNoiseFrequency = 0.02f;  // Adjust frequency to control cave density
         float wormCaveSizeMultiplier = 1.15f;
         float wormBias = -0.43f;
         float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
@@ -34,7 +34,7 @@ public struct Voxel
 
         float remappedWormCaveNoise = wormCaveNoise / 3;
 
-        if (remappedWormCaveNoise < 0.5)
+        if (remappedWormCaveNoise <= 0.5)
             return VoxelType.Air;
 
         // Normal terrain height-based voxel type determination
