@@ -13,6 +13,7 @@ public class Chunk : MonoBehaviour
     public Voxel[,,] voxels;
     private int chunkSize = 16;
     private int chunkHeight = 16;
+    private AnimationCurve continentalnessCurve;
     private float noiseFrequency;
     private float noiseAmplitude;
     //private float lightFalloff;
@@ -60,8 +61,17 @@ public class Chunk : MonoBehaviour
         //Stopwatch sw = new();
         //sw.Start();
 
+        int sampleCount = 100; // Adjust for desired precision
+        NativeArray<float> curveSamples = new(sampleCount, Allocator.TempJob);
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = i / (float)(sampleCount - 1);
+            curveSamples[i] = continentalnessCurve.Evaluate(t);
+        }
+
         GenerateJob generateJob = new()
         {
+            heightCurveSamples = curveSamples,
             useVerticalChunks = World.Instance.useVerticalChunks,
             chunkHeight = chunkHeight,
             chunkSize = chunkSize,
@@ -92,7 +102,9 @@ public class Chunk : MonoBehaviour
             //}
         }
 
+        //curveSamples.Dispose();
         generateJob.voxels.Dispose();
+        generateJob.heightCurveSamples.Dispose();
         //generateJob.litVoxels.Dispose();
 
         //sw.Stop();
@@ -225,12 +237,13 @@ public class Chunk : MonoBehaviour
         //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
-    public void Initialize(int size, int height)
+    public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
     {
         //Stopwatch sw = new();
         //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
+        this.continentalnessCurve = continentalnessCurve;
         this.noiseFrequency = World.Instance.noiseFrequency;
         this.noiseAmplitude = World.Instance.noiseAmplitude;
         //this.lightFalloff = World.lightFalloff;

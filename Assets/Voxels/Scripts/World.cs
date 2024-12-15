@@ -15,6 +15,7 @@ public class World : MonoBehaviour
     public static float lightFalloff = 0.08f;*/
 
     [Header("World")]
+    public AnimationCurve continentalnessCurve;
     public int chunksPerFrame = 5; // Number of chunks to load per frame
     public bool useVerticalChunks = true;
     public int worldSize = 5; 
@@ -147,7 +148,7 @@ public class World : MonoBehaviour
         chunkObject.transform.parent = transform;
 
         Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight);
+        newChunk.Initialize(chunkSize, chunkHeight, continentalnessCurve);
 
         chunks[chunkPos] = newChunk;
 
