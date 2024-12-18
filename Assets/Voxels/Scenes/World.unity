@@ -633,7 +633,7 @@ MonoBehaviour:
   chunkSize: 16
   chunkHeight: 16
   maxHeight: 0.2
-  noiseFrequency: 300
+  noiseFrequency: 100
   noiseAmplitude: 30
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
   renderDistance: 2
