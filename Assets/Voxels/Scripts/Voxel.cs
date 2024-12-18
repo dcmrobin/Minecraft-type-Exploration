@@ -4,7 +4,7 @@ using Unity.Mathematics;
 
 public struct Voxel
 {
-    public enum VoxelType { Air, Stone, Dirt, Grass, Deepslate } // Add more types as needed
+    public enum VoxelType { Air, Stone, Dirt, Grass, Deepslate, Sand } // Add more types as needed
     public Vector3 position;
     public VoxelType type;
     public bool isActive;
@@ -75,6 +75,9 @@ public struct Voxel
                 if (faceIndex == 1) // Bottom face
                     return new Vector2(0.5f, 0.5f);
                 return new Vector2(0.5f, 0.75f); // Side faces
+
+            case VoxelType.Sand:
+                return new Vector2(0.75f, 0.75f);
 
             // Add more cases for other types...
 
