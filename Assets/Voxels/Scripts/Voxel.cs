@@ -31,8 +31,9 @@ public struct Voxel
         float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
                         + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
                         + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias;// instead of between 0 and 1
-
         float remappedWormCaveNoise = wormCaveNoise / 3;
+
+        float biomeNoise = Mathf.PerlinNoise(voxelWorldPos.x + seed, voxelWorldPos.z + seed);
 
         if (remappedWormCaveNoise <= 0.5)
             return VoxelType.Air;
@@ -40,11 +41,19 @@ public struct Voxel
         // Normal terrain height-based voxel type determination
         VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
 
-        if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
-            type = VoxelType.Dirt;
-
-        if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
-            type = VoxelType.Grass;
+        if (biomeNoise > 0.5)
+        {
+            if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
+                type = VoxelType.Dirt;
+    
+            if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
+                type = VoxelType.Grass;
+        }
+        else
+        {
+            if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 7)
+                type = VoxelType.Sand;
+        }
         
         if (voxelWorldPos.y <= -230 - randInt && type != VoxelType.Air)
             type = VoxelType.Deepslate;
