@@ -16,51 +16,6 @@ public struct Voxel
         this.isActive = isActive;
     }
 
-    public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt, int seed)
-    {
-        Vector3 voxelWorldPos = useVerticalChunks ? voxelChunkPos + chunkPos : voxelChunkPos;
-
-        // Calculate the 3D Perlin noise for caves
-        float wormCaveNoiseFrequency = 0.02f;  // Adjust frequency to control cave density
-        float wormCaveSizeMultiplier = 1.15f;
-        float wormBias = -0.43f;
-        float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias;// instead of between 0 and 1
-        float wormCaveNoise2 = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.z + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.x + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias;// instead of between 0 and 1
-        float remappedWormCaveNoise = wormCaveNoise / 3;
-        float remappedWormCaveNoise2 =  + wormCaveNoise2 / 3;
-
-        float biomeNoise = Mathf.PerlinNoise(voxelWorldPos.x + seed, voxelWorldPos.z + seed);
-
-        if (remappedWormCaveNoise <= 0.5 || remappedWormCaveNoise2 <= 0.5)
-            return VoxelType.Air;
-
-        // Normal terrain height-based voxel type determination
-        VoxelType type = voxelWorldPos.y <= calculatedHeight ? VoxelType.Stone : VoxelType.Air;
-
-        if (biomeNoise < 0.5)// WHY DOES THE BIOME NOISE ALWAYS EQUAL A CERTAIN NUMBER NO MATTER WHERE THE VOXEL ISSSS
-        {
-            if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
-                type = VoxelType.Dirt;
-    
-            if (type == VoxelType.Dirt && voxelWorldPos.y <= calculatedHeight && voxelWorldPos.y > calculatedHeight - 1)
-                type = VoxelType.Grass;
-        }
-        else
-        {
-            if (type != VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 7)
-                type = VoxelType.Sand;
-        }
-        
-        if (voxelWorldPos.y <= -230 - randInt && type != VoxelType.Air)
-            type = VoxelType.Deepslate;
-
-        return type;
-    }
-
     public static Vector2 GetTileOffset(VoxelType type, int faceIndex)
     {
         switch (type)
