@@ -177,9 +177,118 @@ public class Chunk : MonoBehaviour
             {
                 if (facesVisible[i])
                 {
-                    voxel.AddFaceData(vertices, triangles, uvs, colors, i);
+                    AddFaceData(vertices, triangles, uvs, colors, i, voxel.position, voxel.type);
                 }
             }
+        }
+    }
+
+    public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex, Vector3 position, Voxel.VoxelType type)
+    {
+        Vector2[] faceUVs = GetFaceUVs(type, faceIndex);
+
+        switch (faceIndex)
+        {
+            case 0: // Top Face
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                break;
+            case 1: // Bottom Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                break;
+            case 2: // Left Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                break;
+            case 3: // Right Face
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                break;
+            case 4: // Front Face
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + 1));
+                break;
+            case 5: // Back Face
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + 1, position.z));
+                break;
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            colors.Add(new Color(0, 0, 0, 1));
+        }
+        uvs.AddRange(faceUVs);
+
+        // Adding triangle indices
+        int vertCount = vertices.Count;
+        triangles.Add(vertCount - 4);
+        triangles.Add(vertCount - 3);
+        triangles.Add(vertCount - 2);
+        triangles.Add(vertCount - 4);
+        triangles.Add(vertCount - 2);
+        triangles.Add(vertCount - 1);
+    }
+
+    public static Vector2[] GetFaceUVs(Voxel.VoxelType type, int faceIndex)
+    {
+        float tileSize = 0.25f; // Assuming a 4x4 texture atlas (1/4 = 0.25)
+        Vector2[] uvs = new Vector2[4];
+
+        Vector2 tileOffset = GetTileOffset(type, faceIndex);
+
+        uvs[0] = new Vector2(tileOffset.x, tileOffset.y);
+        uvs[1] = new Vector2(tileOffset.x + tileSize, tileOffset.y);
+        uvs[2] = new Vector2(tileOffset.x + tileSize, tileOffset.y + tileSize);
+        uvs[3] = new Vector2(tileOffset.x, tileOffset.y + tileSize);
+
+        return uvs;
+    }
+
+    public static Vector2 GetTileOffset(Voxel.VoxelType type, int faceIndex)
+    {
+        switch (type)
+        {
+            case Voxel.VoxelType.Grass:
+                if (faceIndex == 0) // Top face
+                    return new Vector2(0, 0.75f);
+                if (faceIndex == 1) // Bottom face
+                    return new Vector2(0.25f, 0.75f);
+                return new Vector2(0, 0.5f); // Side faces
+
+            case Voxel.VoxelType.Dirt:
+                return new Vector2(0.25f, 0.75f);
+
+            case Voxel.VoxelType.Stone:
+                return new Vector2(0.25f, 0.5f);
+
+            case Voxel.VoxelType.Deepslate:
+                if (faceIndex == 0) // Top face
+                    return new Vector2(0.5f, 0.5f);
+                if (faceIndex == 1) // Bottom face
+                    return new Vector2(0.5f, 0.5f);
+                return new Vector2(0.5f, 0.75f); // Side faces
+
+            case Voxel.VoxelType.Sand:
+                return new Vector2(0.75f, 0.75f);
+
+            // Add more cases for other types...
+
+            default:
+                return Vector2.zero;
         }
     }
 
