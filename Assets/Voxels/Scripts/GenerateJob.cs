@@ -84,25 +84,4 @@ public struct GenerateJob : IJob
 
         return type;
     }
-
-    private readonly bool IsInsideChunk(Vector3Int position)
-    {
-        return position.x >= 0 && position.x < chunkSize &&
-               position.y >= 0 && position.y < chunkHeight &&
-               position.z >= 0 && position.z < chunkSize;
-    }
-
-    private readonly Vector3Int GetNeighbor(Vector3Int current, int direction)
-    {
-        return direction switch
-        {
-            0 => new Vector3Int(current.x, current.y + 1, current.z), // Top
-            1 => new Vector3Int(current.x, current.y - 1, current.z), // Bottom
-            2 => new Vector3Int(current.x - 1, current.y, current.z), // Left
-            3 => new Vector3Int(current.x + 1, current.y, current.z), // Right
-            4 => new Vector3Int(current.x, current.y, current.z + 1), // Front
-            5 => new Vector3Int(current.x, current.y, current.z - 1), // Back
-            _ => current
-        };
-    }
 }
