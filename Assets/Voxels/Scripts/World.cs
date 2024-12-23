@@ -192,7 +192,7 @@ public class World : MonoBehaviour
         // Step 3: If the chunk is null (not loaded), return a default voxel (e.g., air)
         if (chunk == null)
         {
-            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false, 0f);
+            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false);
         }
 
         // Step 4: Convert the world position to local position within the chunk
@@ -203,7 +203,7 @@ public class World : MonoBehaviour
         // Step 5: Ensure the local coordinates are within bounds
         if (localX < 0 || localX >= chunkSize || localY < 0 || localY >= chunkHeight || localZ < 0 || localZ >= chunkSize)
         {
-            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false, 0f);
+            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false);
         }
 
         // Step 6: Return the voxel from the chunk's voxel array

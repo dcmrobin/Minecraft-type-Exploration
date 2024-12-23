@@ -8,16 +8,12 @@ public struct Voxel
     public Vector3 position;
     public VoxelType type;
     public bool isActive;
-    public float globalLightPercentage;
-    public float transparency;
 
-    public Voxel(Vector3 position, VoxelType type, bool isActive, float globalLightPercentage)
+    public Voxel(Vector3 position, VoxelType type, bool isActive)
     {
         this.position = position;
         this.type = type;
         this.isActive = isActive;
-        this.globalLightPercentage = globalLightPercentage;
-        this.transparency = type == VoxelType.Air ? 1 : 0;
     }
 
     public static VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt, int seed)
@@ -128,10 +124,9 @@ public struct Voxel
         return uvs;
     }
 
-    public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex, Voxel neighborVoxel)
+    public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex)
     {
         Vector2[] faceUVs = Voxel.GetFaceUVs(this.type, faceIndex);
-        float lightLevel = neighborVoxel.globalLightPercentage;
 
         switch (faceIndex)
         {
@@ -175,7 +170,7 @@ public struct Voxel
 
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(0, 0, 0, lightLevel));
+            colors.Add(new Color(0, 0, 0, 1));
         }
         uvs.AddRange(faceUVs);
 

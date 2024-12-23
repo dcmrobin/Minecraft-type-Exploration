@@ -8,15 +8,12 @@ using VoxelEngine;
 
 public class Chunk : MonoBehaviour
 {
-    //public Chunk[] neighbors = new Chunk[6];
-
     public Voxel[,,] voxels;
     private int chunkSize = 16;
     private int chunkHeight = 16;
     private AnimationCurve continentalnessCurve;
     private float noiseFrequency;
     private float noiseAmplitude;
-    //private float lightFalloff;
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
@@ -30,31 +27,6 @@ public class Chunk : MonoBehaviour
     private void Awake() {
         pos = transform.position;
     }
-
-    //private void Update() {
-    //    if (neighbors[0] == null || neighbors[1] == null || neighbors[2] == null || neighbors[3] == null || neighbors[4] == null || neighbors[5] == null)
-    //    {
-    //        CheckForNeighbors();
-    //    }
-    //}
-
-    //public void CheckForNeighbors()
-    //{
-    //    Vector3Int[] neighborDirections = new Vector3Int[]
-    //    {
-    //        new Vector3Int(0, 1, 0),  // Top
-    //        new Vector3Int(0, -1, 0), // Bottom
-    //        new Vector3Int(-1, 0, 0), // Left
-    //        new Vector3Int(1, 0, 0),  // Right
-    //        new Vector3Int(0, 0, 1),  // Front
-    //        new Vector3Int(0, 0, -1)  // Back
-    //    };
-    //    for (int i = 0; i < neighborDirections.Length; i++)
-    //    {
-    //        Vector3Int neighborPos = World.Instance.GetChunkPosition(transform.position) + neighborDirections[i];
-    //        neighbors[i] = World.Instance.GetChunkAt(neighborPos);
-    //    }
-    //}
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
@@ -110,89 +82,6 @@ public class Chunk : MonoBehaviour
         //sw.Stop();
         //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
-
-    /*public void CalculateLight()
-    {
-        //Stopwatch sw = new();
-        //sw.Start();
-        Queue<Vector3Int> litVoxels = new();
-
-        for (int x = 0; x < chunkSize; x++)
-        {
-            for (int z = 0; z < chunkSize; z++)
-            {
-                float lightRay = 1f;
-
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
-                    Voxel thisVoxel = voxels[x, y, z];
-
-                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
-                        lightRay = thisVoxel.transparency;
-
-                    thisVoxel.globalLightPercentage = lightRay;
-
-                    voxels[x, y, z] = thisVoxel;
-
-                    if (lightRay > World.lightFalloff)
-                    {
-                        litVoxels.Enqueue(new Vector3Int(x, y, z));
-                    }
-                }
-            }
-        }
-
-        while (litVoxels.Count > 0)
-        {
-            Vector3Int v = litVoxels.Dequeue();
-            for (int p = 0; p < 6; p++)
-            {
-                Vector3 currentVoxel = new();
-
-                switch (p)
-                {
-                    case 0:
-                        currentVoxel = new Vector3Int(v.x, v.y + 1, v.z);
-                        break;
-                    case 1:
-                        currentVoxel = new Vector3Int(v.x, v.y - 1, v.z);
-                        break;
-                    case 2:
-                        currentVoxel = new Vector3Int(v.x - 1, v.y, v.z);
-                        break;
-                    case 3:
-                        currentVoxel = new Vector3Int(v.x + 1, v.y, v.z);
-                        break;
-                    case 4:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z + 1);
-                        break;
-                    case 5:
-                        currentVoxel = new Vector3Int(v.x, v.y, v.z - 1);
-                        break;
-                }
-
-                Vector3Int neighbor = new((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
-
-                if (neighbor.x >= 0 && neighbor.x < chunkSize && neighbor.y >= 0 && neighbor.y < chunkHeight && neighbor.z >= 0 && neighbor.z < chunkSize) {
-                    if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage < voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff)
-                    {
-                        voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage = voxels[v.x, v.y, v.z].globalLightPercentage - World.lightFalloff;
-
-                        if (voxels[neighbor.x, neighbor.y, neighbor.z].globalLightPercentage > World.lightFalloff)
-                        {
-                            litVoxels.Enqueue(neighbor);
-                        }
-                    }
-                }
-                else
-                {
-                    //crosschunk lighting
-                }
-            }
-        }
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Lighting for {name} took {sw.ElapsedMilliseconds} milliseconds");
-    }*/
 
     public void GenerateMesh()
     {
@@ -288,8 +177,7 @@ public class Chunk : MonoBehaviour
             {
                 if (facesVisible[i])
                 {
-                    Voxel neighborVoxel = GetVoxelSafe(x, y, z);
-                    voxel.AddFaceData(vertices, triangles, uvs, colors, i, neighborVoxel);
+                    voxel.AddFaceData(vertices, triangles, uvs, colors, i);
                 }
             }
         }

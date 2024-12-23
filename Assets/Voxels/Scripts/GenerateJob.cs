@@ -38,73 +38,8 @@ public struct GenerateJob : IJob
             float calculatedHeight = heightCurveSamples[sampleIndex] * amplitude;
 
             Voxel.VoxelType type = Voxel.DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
-            voxels[index] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air, 0);
+            voxels[index] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
         }
-
-        // Voxel light calculation
-        /*for (int x = 0; x < chunkSize; x++)
-        {
-            for (int z = 0; z < chunkSize; z++)
-            {
-                float lightRay = 1f;
-
-                // Process from the top of the chunk to the bottom
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
-                    int voxelIndex = x + y * chunkSize + z * chunkSize * chunkHeight;
-                    Voxel thisVoxel = voxels[voxelIndex];
-
-                    if (thisVoxel.type != Voxel.VoxelType.Air && thisVoxel.transparency < lightRay)
-                    {
-                        lightRay = thisVoxel.transparency;
-                    }
-
-                    thisVoxel.globalLightPercentage = lightRay;
-                    voxels[voxelIndex] = thisVoxel;
-
-                    if (lightRay > lightFalloff)
-                    {
-                        // Add voxel to the flood-fill queue if it can propagate light
-                        litVoxels.Enqueue(new Vector3Int(x, y, z));
-                    }
-                }
-            }
-        }
-
-        // Flood-fill the light across neighbors
-        while (litVoxels.Count > 0)
-        {
-            Vector3Int v = litVoxels.Dequeue();
-            int voxelIndex = v.x + v.y * chunkSize + v.z * chunkSize * chunkHeight;
-            Voxel sourceVoxel = voxels[voxelIndex];
-
-            for (int p = 0; p < 6; p++)
-            {
-                Vector3Int neighbor = GetNeighbor(v, p);
-                int neighborVoxelIndex = neighbor.x + neighbor.y * chunkSize + neighbor.z * chunkSize * chunkHeight;
-
-                if (IsInsideChunk(neighbor))
-                {
-                    Voxel neighborVoxel = voxels[neighborVoxelIndex];
-
-                    // Check if the neighbor can be lit by this voxel
-                    if (neighborVoxel.globalLightPercentage < sourceVoxel.globalLightPercentage - lightFalloff)
-                    {
-                        neighborVoxel.globalLightPercentage = sourceVoxel.globalLightPercentage - lightFalloff;
-                        voxels[neighborVoxelIndex] = neighborVoxel;
-
-                        if (neighborVoxel.globalLightPercentage > lightFalloff)
-                        {
-                            litVoxels.Enqueue(neighbor);
-                        }
-                    }
-                }
-                else
-                {
-                    //
-                }
-            }
-        }*/
     }
 
     private readonly bool IsInsideChunk(Vector3Int position)
