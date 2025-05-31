@@ -1048,7 +1048,7 @@ public class Chunk : MonoBehaviour
         {
             for (int z = 0; z < chunkSize; z++)
             {
-                float lightLevel = World.Instance.globalLightLevel; // Use global light level as initial value
+                float lightLevel = 1f; // Full sunlight at the top
 
                 for (int y = chunkHeight - 1; y >= 0; y--)
                 {
@@ -1087,6 +1087,11 @@ public class Chunk : MonoBehaviour
                 if (IsInsideChunk(neighbor))
                 {
                     Voxel neighborVoxel = voxels[neighbor.x, neighbor.y, neighbor.z];
+                    
+                    // Skip if the neighbor is not transparent
+                    if (neighborVoxel.transparency < 0.1f)
+                        continue;
+
                     float newLight = sourceLight - World.lightFalloff;
 
                     // Update light if the new light level is higher
@@ -1101,6 +1106,20 @@ public class Chunk : MonoBehaviour
                             litVoxels.Enqueue(neighbor);
                         }
                     }
+                }
+            }
+        }
+
+        // Third pass: Apply global light level to all blocks
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    Voxel voxel = voxels[x, y, z];
+                    voxel.skyLight *= World.Instance.globalLightLevel;
+                    voxels[x, y, z] = voxel;
                 }
             }
         }
@@ -1159,5 +1178,19 @@ public class Chunk : MonoBehaviour
             meshFilter.mesh = mesh;
             meshCollider.sharedMesh = mesh;
         }
+    }
+
+    // Helper method to add a light source
+    public void AddLightSource(Vector3Int position, float intensity)
+    {
+        if (!IsInsideChunk(position))
+            return;
+
+        Voxel voxel = voxels[position.x, position.y, position.z];
+        voxel.blockLight = intensity;
+        voxels[position.x, position.y, position.z] = voxel;
+
+        // Recalculate lighting
+        CalculateLight();
     }
 }
