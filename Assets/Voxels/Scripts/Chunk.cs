@@ -705,18 +705,11 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Calculate light level for each vertex
-        float[] lightLevels = new float[4];
+        // Store block type in color.r (using the actual enum value)
+        float blockType = (float)type;
         for (int i = 0; i < 4; i++)
         {
-            Vector3 vertPos = vertices[vertCount + i];
-            lightLevels[i] = CalculateLightLevel((int)vertPos.x, (int)vertPos.y, (int)vertPos.z, faceIndex);
-        }
-
-        // Store block type in color.r and light level in color.a
-        for (int i = 0; i < 4; i++)
-        {
-            colors.Add(new Color((float)type, 0, 0, lightLevels[i]));
+            colors.Add(new Color(blockType, 0, 0, 1));
         }
 
         triangles.Add(vertCount);
@@ -725,110 +718,6 @@ public class Chunk : MonoBehaviour
         triangles.Add(vertCount);
         triangles.Add(vertCount + 2);
         triangles.Add(vertCount + 3);
-    }
-
-    private float CalculateLightLevel(int x, int y, int z, int faceIndex)
-    {
-        // Get the light level from the voxel
-        float lightLevel = GetVoxelLightLevel(x, y, z);
-
-        // Apply ambient occlusion
-        float ao = CalculateAmbientOcclusion(x, y, z, faceIndex);
-        lightLevel *= ao;
-
-        return lightLevel;
-    }
-
-    private float GetVoxelLightLevel(int x, int y, int z)
-    {
-        // Check if coordinates are within chunk bounds
-        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
-        {
-            return voxels[x, y, z].lightLevel;
-        }
-
-        // If outside chunk bounds, get from world
-        Vector3Int worldPos = new Vector3Int(
-            Mathf.FloorToInt(pos.x) + x,
-            Mathf.FloorToInt(pos.y) + y,
-            Mathf.FloorToInt(pos.z) + z
-        );
-
-        Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
-        return neighborVoxel.lightLevel;
-    }
-
-    private float CalculateAmbientOcclusion(int x, int y, int z, int faceIndex)
-    {
-        float ao = 1.0f;
-        int side1, side2, corner;
-
-        switch (faceIndex)
-        {
-            case 0: // Top face
-                side1 = IsVoxelSolid(x - 1, y + 1, z) ? 1 : 0;
-                side2 = IsVoxelSolid(x, y + 1, z - 1) ? 1 : 0;
-                corner = IsVoxelSolid(x - 1, y + 1, z - 1) ? 1 : 0;
-                break;
-            case 1: // Bottom face
-                side1 = IsVoxelSolid(x - 1, y - 1, z) ? 1 : 0;
-                side2 = IsVoxelSolid(x, y - 1, z - 1) ? 1 : 0;
-                corner = IsVoxelSolid(x - 1, y - 1, z - 1) ? 1 : 0;
-                break;
-            case 2: // Left face
-                side1 = IsVoxelSolid(x - 1, y, z - 1) ? 1 : 0;
-                side2 = IsVoxelSolid(x - 1, y - 1, z) ? 1 : 0;
-                corner = IsVoxelSolid(x - 1, y - 1, z - 1) ? 1 : 0;
-                break;
-            case 3: // Right face
-                side1 = IsVoxelSolid(x + 1, y, z - 1) ? 1 : 0;
-                side2 = IsVoxelSolid(x + 1, y - 1, z) ? 1 : 0;
-                corner = IsVoxelSolid(x + 1, y - 1, z - 1) ? 1 : 0;
-                break;
-            case 4: // Front face
-                side1 = IsVoxelSolid(x - 1, y, z + 1) ? 1 : 0;
-                side2 = IsVoxelSolid(x, y - 1, z + 1) ? 1 : 0;
-                corner = IsVoxelSolid(x - 1, y - 1, z + 1) ? 1 : 0;
-                break;
-            case 5: // Back face
-                side1 = IsVoxelSolid(x - 1, y, z - 1) ? 1 : 0;
-                side2 = IsVoxelSolid(x, y - 1, z - 1) ? 1 : 0;
-                corner = IsVoxelSolid(x - 1, y - 1, z - 1) ? 1 : 0;
-                break;
-            default:
-                return 1.0f;
-        }
-
-        // Calculate ambient occlusion
-        if (side1 + side2 == 2)
-        {
-            ao = 0.5f;
-        }
-        else
-        {
-            ao = 1.0f - (side1 + side2 + corner) * 0.2f;
-        }
-
-        return ao;
-    }
-
-    private bool IsVoxelSolid(int x, int y, int z)
-    {
-        // Check if coordinates are within chunk bounds
-        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
-        {
-            return voxels[x, y, z].type != Voxel.VoxelType.Air;
-        }
-
-        // If outside chunk bounds, get from world
-        Vector3Int worldPos = new Vector3Int(
-            Mathf.FloorToInt(pos.x) + x,
-            Mathf.FloorToInt(pos.y) + y,
-            Mathf.FloorToInt(pos.z) + z
-        );
-
-        Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
-        return neighborVoxel.type != Voxel.VoxelType.Air;
     }
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
@@ -1008,8 +897,10 @@ public class Chunk : MonoBehaviour
     {
         if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
         {
-            return Voxel.CreateDefault(); // Default or inactive voxel
+            //Debug.Log("Voxel safe out of bounds");
+            return new Voxel(); // Default or inactive voxel
         }
+        //Debug.Log("Voxel safe is in bounds");
         return voxels[x, y, z];
     }
 

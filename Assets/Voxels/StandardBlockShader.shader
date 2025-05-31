@@ -41,7 +41,6 @@
 				float maxGlobalLightLevel;
 
 				// Block type is stored in color.r
-				// Light level is stored in color.a
 				// 0 = Air, 1 = Stone, 2 = Dirt, 3 = Grass, 4 = Deepslate, 5 = Sand
 
 				float2 GetTileOffset(float blockType, float faceIndex) {
@@ -119,12 +118,12 @@
 					fixed4 col = tex2D(_MainTex, uv);
 
 					// Apply lighting
-					float lightLevel = i.color.a; // Get light level from alpha
-					float shade = lerp(0.0, 1.0, lightLevel); // Convert light level to shade
-					shade = lerp(0.2, 1.0, shade); // Ensure minimum brightness of 0.2
+					float shade = (maxGlobalLightLevel - minGlobalLightLevel) * GlobalLightLevel + minGlobalLightLevel;
+					shade *= i.color.a;
+					shade = clamp(1 - shade, minGlobalLightLevel, maxGlobalLightLevel);
 
 					clip(col.a - 1);
-					col.rgb *= shade;
+					col = lerp(col, float4(0, 0, 0, 1), shade);
 
 					return col;
 				}
