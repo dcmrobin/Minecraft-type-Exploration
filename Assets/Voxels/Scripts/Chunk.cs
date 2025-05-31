@@ -294,9 +294,22 @@ public class Chunk : MonoBehaviour
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
     {
-        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
-            return true; // Face is at the boundary of the chunk
-        return !voxels[x, y, z].isActive;
+        // If the coordinates are within the chunk bounds, check normally
+        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
+        {
+            return voxels[x, y, z].type == Voxel.VoxelType.Air;
+        }
+
+        // If we're outside the chunk bounds, we need to check neighboring chunks
+        Vector3Int worldPos = new Vector3Int(
+            Mathf.FloorToInt(pos.x) + x,
+            Mathf.FloorToInt(pos.y) + y,
+            Mathf.FloorToInt(pos.z) + z
+        );
+
+        // Get the voxel from the world
+        Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
+        return neighborVoxel.type == Voxel.VoxelType.Air;
     }
 
     private Voxel GetVoxelSafe(int x, int y, int z)
