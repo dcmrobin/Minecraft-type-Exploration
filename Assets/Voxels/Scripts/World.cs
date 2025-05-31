@@ -167,7 +167,70 @@ public class World : MonoBehaviour
 
         chunks[chunkPos] = newChunk;
 
-        // No need to update neighboring chunks anymore since we generate in order
+        // Update lighting of adjacent chunks' boundary voxels
+        UpdateAdjacentChunksLighting(chunkPos);
+    }
+
+    private void UpdateAdjacentChunksLighting(Vector3Int newChunkPos)
+    {
+        // Check all 6 adjacent chunks
+        Vector3Int[] adjacentDirections = new Vector3Int[]
+        {
+            new Vector3Int(0, 1, 0),  // Up
+            new Vector3Int(0, -1, 0), // Down
+            new Vector3Int(-1, 0, 0), // Left
+            new Vector3Int(1, 0, 0),  // Right
+            new Vector3Int(0, 0, 1),  // Front
+            new Vector3Int(0, 0, -1)  // Back
+        };
+
+        foreach (Vector3Int direction in adjacentDirections)
+        {
+            Vector3Int adjacentPos = newChunkPos + direction;
+            if (chunks.TryGetValue(adjacentPos, out Chunk adjacentChunk))
+            {
+                // Determine which faces of the adjacent chunk need updating
+                if (direction.y != 0) // Vertical neighbors
+                {
+                    // Update the entire top or bottom layer of the adjacent chunk
+                    for (int x = 0; x < chunkSize; x++)
+                    {
+                        for (int z = 0; z < chunkSize; z++)
+                        {
+                            int y = direction.y > 0 ? 0 : chunkHeight - 1; // Top or bottom layer
+                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
+                        }
+                    }
+                }
+                else if (direction.x != 0) // Horizontal neighbors (left/right)
+                {
+                    // Update the entire face of the adjacent chunk
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        for (int z = 0; z < chunkSize; z++)
+                        {
+                            int x = direction.x > 0 ? 0 : chunkSize - 1; // Left or right face
+                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
+                        }
+                    }
+                }
+                else // Front/back neighbors
+                {
+                    // Update the entire face of the adjacent chunk
+                    for (int x = 0; x < chunkSize; x++)
+                    {
+                        for (int y = 0; y < chunkHeight; y++)
+                        {
+                            int z = direction.z > 0 ? 0 : chunkSize - 1; // Front or back face
+                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
+                        }
+                    }
+                }
+
+                // Regenerate the mesh of the adjacent chunk
+                adjacentChunk.GenerateMesh();
+            }
+        }
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkPos)

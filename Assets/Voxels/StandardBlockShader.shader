@@ -119,19 +119,24 @@
 					// Sample the texture
 					fixed4 col = tex2D(_MainTex, uv);
 
-					// Calculate lighting
+					// Calculate lighting based on face and sky exposure
 					float skyLight = i.color.g;
-					float blockLight = i.color.b;
-					float transparency = i.color.a;
+					
+					// Apply different lighting based on face
+					float shade;
+					if (faceIndex == 0.0) { // Top face
+						shade = skyLight; // Use full sky light for top face
+					} else if (faceIndex == 1.0) { // Bottom face
+						shade = 0.5; // Always dark for bottom face
+					} else { // Side faces
+						shade = lerp(0.5, skyLight, 0.5); // Interpolate between dark and sky light
+					}
 
-					// Combine sky light and block light, taking the maximum
-					float lightLevel = max(skyLight, blockLight);
-					
 					// Apply global light level
-					lightLevel *= GlobalLightLevel;
+					shade *= GlobalLightLevel;
 					
-					// Calculate final shade (no inversion needed)
-					float shade = lerp(minGlobalLightLevel, maxGlobalLightLevel, lightLevel);
+					// Clamp final shade
+					shade = lerp(minGlobalLightLevel, maxGlobalLightLevel, shade);
 
 					// Apply transparency
 					clip(col.a - 0.5);
