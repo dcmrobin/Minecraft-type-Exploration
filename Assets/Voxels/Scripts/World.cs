@@ -105,17 +105,26 @@ public class World : MonoBehaviour
     {
         if (useVerticalChunks)
         {
-            for (int y = -renderDistance; y <= renderDistance; y++)
+            // Generate chunks in a spiral pattern from the center
+            int maxDistance = renderDistance;
+            for (int distance = 0; distance <= maxDistance; distance++)
             {
-                for (int x = -renderDistance; x <= renderDistance; x++)
+                // Generate chunks at this distance in a spiral
+                for (int y = -distance; y <= distance; y++)
                 {
-                    for (int z = -renderDistance; z <= renderDistance; z++)
+                    for (int x = -distance; x <= distance; x++)
                     {
-                        Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
-        
-                        if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                        for (int z = -distance; z <= distance; z++)
                         {
-                            chunkLoadQueue.Enqueue(chunkPos);
+                            // Only process chunks at the current distance
+                            if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z)) == distance)
+                            {
+                                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
+                                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                                {
+                                    chunkLoadQueue.Enqueue(chunkPos);
+                                }
+                            }
                         }
                     }
                 }
@@ -123,15 +132,23 @@ public class World : MonoBehaviour
         }
         else
         {
-            for (int x = -renderDistance; x <= renderDistance; x++)
+            // For non-vertical chunks, use a 2D spiral
+            int maxDistance = renderDistance;
+            for (int distance = 0; distance <= maxDistance; distance++)
             {
-                for (int z = -renderDistance; z <= renderDistance; z++)
+                for (int x = -distance; x <= distance; x++)
                 {
-                    Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
-        
-                    if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                    for (int z = -distance; z <= distance; z++)
                     {
-                        chunkLoadQueue.Enqueue(chunkPos);
+                        // Only process chunks at the current distance
+                        if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(z)) == distance)
+                        {
+                            Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
+                            if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
+                            {
+                                chunkLoadQueue.Enqueue(chunkPos);
+                            }
+                        }
                     }
                 }
             }
@@ -149,33 +166,7 @@ public class World : MonoBehaviour
 
         chunks[chunkPos] = newChunk;
 
-        // Update neighboring chunks
-        UpdateNeighboringChunks(chunkPos);
-    }
-
-    private void UpdateNeighboringChunks(Vector3Int chunkPos)
-    {
-        // Check all 6 neighboring chunks
-        Vector3Int[] neighborOffsets = new Vector3Int[]
-        {
-            new Vector3Int(1, 0, 0),   // right
-            new Vector3Int(-1, 0, 0),  // left
-            new Vector3Int(0, 1, 0),   // up
-            new Vector3Int(0, -1, 0),  // down
-            new Vector3Int(0, 0, 1),   // front
-            new Vector3Int(0, 0, -1)   // back
-        };
-
-        foreach (Vector3Int offset in neighborOffsets)
-        {
-            Vector3Int neighborPos = chunkPos + offset;
-            if (chunks.TryGetValue(neighborPos, out Chunk neighborChunk))
-            {
-                // Regenerate the mesh of the neighboring chunk
-                neighborChunk.ResetChunk();
-                neighborChunk.GenerateMesh();
-            }
-        }
+        // No need to update neighboring chunks anymore since we generate in order
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkPos)

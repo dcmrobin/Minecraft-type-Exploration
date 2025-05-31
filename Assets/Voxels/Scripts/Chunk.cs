@@ -166,6 +166,8 @@ public class Chunk : MonoBehaviour
         if (voxel.isActive)
         {
             bool[] facesVisible = new bool[6];
+            
+            // Check each face
             facesVisible[0] = IsVoxelHiddenInChunk(x, y + 1, z); // Top
             facesVisible[1] = IsVoxelHiddenInChunk(x, y - 1, z); // Bottom
             facesVisible[2] = IsVoxelHiddenInChunk(x - 1, y, z); // Left
@@ -173,6 +175,7 @@ public class Chunk : MonoBehaviour
             facesVisible[4] = IsVoxelHiddenInChunk(x, y, z + 1); // Front
             facesVisible[5] = IsVoxelHiddenInChunk(x, y, z - 1); // Back
 
+            // Only add faces that are visible
             for (int i = 0; i < facesVisible.Length; i++)
             {
                 if (facesVisible[i])
@@ -355,5 +358,94 @@ public class Chunk : MonoBehaviour
 
         // Regenerate voxel data
         GenerateVoxelData(transform.position);
+    }
+
+    public void UpdateAdjacentFaces(Vector3Int direction)
+    {
+        // Store the current mesh data
+        Vector3[] oldVertices = meshFilter.mesh.vertices;
+        int[] oldTriangles = meshFilter.mesh.triangles;
+        Vector2[] oldUVs = meshFilter.mesh.uv;
+        Color[] oldColors = meshFilter.mesh.colors;
+
+        // Clear lists for new mesh data
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+
+        // Determine which faces to check based on the direction
+        int startX = direction.x == 1 ? chunkSize - 1 : 0;
+        int endX = direction.x == -1 ? 1 : chunkSize;
+        int startY = direction.y == 1 ? chunkHeight - 1 : 0;
+        int endY = direction.y == -1 ? 1 : chunkHeight;
+        int startZ = direction.z == 1 ? chunkSize - 1 : 0;
+        int endZ = direction.z == -1 ? 1 : chunkSize;
+
+        // Create a HashSet to track which vertices we've updated
+        HashSet<int> updatedVertexIndices = new HashSet<int>();
+
+        // Only process voxels on the face that's adjacent to the new chunk
+        for (int y = startY; y < endY; y++)
+        {
+            for (int x = startX; x < endX; x++)
+            {
+                for (int z = startZ; z < endZ; z++)
+                {
+                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    {
+                        ProcessVoxel(x, y, z);
+                    }
+                }
+            }
+        }
+
+        // Create new arrays that combine old and new data
+        List<Vector3> combinedVertices = new List<Vector3>();
+        List<int> combinedTriangles = new List<int>();
+        List<Vector2> combinedUVs = new List<Vector2>();
+        List<Color> combinedColors = new List<Color>();
+
+        // Add all old vertices that weren't updated
+        for (int i = 0; i < oldVertices.Length; i++)
+        {
+            if (!updatedVertexIndices.Contains(i))
+            {
+                combinedVertices.Add(oldVertices[i]);
+                combinedUVs.Add(oldUVs[i]);
+                combinedColors.Add(oldColors[i]);
+            }
+        }
+
+        // Add all new vertices
+        combinedVertices.AddRange(vertices);
+        combinedUVs.AddRange(uvs);
+        combinedColors.AddRange(colors);
+
+        // Update triangle indices to match the new vertex positions
+        for (int i = 0; i < oldTriangles.Length; i++)
+        {
+            if (!updatedVertexIndices.Contains(oldTriangles[i]))
+            {
+                combinedTriangles.Add(oldTriangles[i]);
+            }
+        }
+        combinedTriangles.AddRange(triangles);
+
+        // Update the mesh with the combined data
+        if (combinedVertices.Count > 0)
+        {
+            Mesh mesh = new()
+            {
+                vertices = combinedVertices.ToArray(),
+                triangles = combinedTriangles.ToArray(),
+                uv = combinedUVs.ToArray(),
+                colors = combinedColors.ToArray()
+            };
+
+            mesh.RecalculateNormals();
+            meshFilter.mesh = mesh;
+            meshCollider.sharedMesh = mesh;
+        }
     }
 }
