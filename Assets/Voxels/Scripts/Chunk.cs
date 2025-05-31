@@ -87,7 +87,6 @@ public class Chunk : MonoBehaviour
     {
         vertices.Clear();
         triangles.Clear();
-        uvs.Clear();
         colors.Clear();
 
         // Process top and bottom faces with greedy meshing
@@ -478,7 +477,6 @@ public class Chunk : MonoBehaviour
             {
                 vertices = vertices.ToArray(),
                 triangles = triangles.ToArray(),
-                uv = uvs.ToArray(),
                 colors = colors.ToArray()
             };
 
@@ -665,7 +663,6 @@ public class Chunk : MonoBehaviour
 
     private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
     {
-        Vector2[] faceUVs = GetFaceUVs(type, faceIndex);
         int vertCount = vertices.Count;
 
         switch (faceIndex)
@@ -708,11 +705,12 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
+        // Store block type in color.r (normalized to 0-1 range)
+        float blockType = (float)type / 10.0f; // Assuming we have less than 10 block types
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(0, 0, 0, 1));
+            colors.Add(new Color(blockType, 0, 0, 1));
         }
-        uvs.AddRange(faceUVs);
 
         triangles.Add(vertCount);
         triangles.Add(vertCount + 1);
@@ -949,10 +947,10 @@ public class Chunk : MonoBehaviour
         Color[] oldColors = meshFilter.mesh.colors;
 
         // Clear lists for new mesh data
-        vertices.Clear();
-        triangles.Clear();
-        uvs.Clear();
-        colors.Clear();
+            vertices.Clear();
+            triangles.Clear();
+            uvs.Clear();
+            colors.Clear();
 
         // Determine which faces to check based on the direction
         int startX = direction.x == 1 ? chunkSize - 1 : 0;
