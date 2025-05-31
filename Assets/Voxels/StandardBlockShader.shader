@@ -41,34 +41,33 @@
 				float maxGlobalLightLevel;
 
 				// Block type is stored in color.r
-				// Face index is stored in color.g
-				// 0 = top, 1 = bottom, 2 = left, 3 = right, 4 = front, 5 = back
+				// 0 = Air, 1 = Stone, 2 = Dirt, 3 = Grass, 4 = Deepslate, 5 = Sand
 
 				float2 GetTileOffset(float blockType, float faceIndex) {
-					// Grass
-					if (blockType < 0.1) {
+					// Stone (1)
+					if (blockType < 1.5) {
+						return float2(0.25, 0.5);
+					}
+					// Dirt (2)
+					else if (blockType < 2.5) {
+						return float2(0.25, 0.75);
+					}
+					// Grass (3)
+					else if (blockType < 3.5) {
 						if (faceIndex < 0.1) // Top face
 							return float2(0.0, 0.75);
 						if (faceIndex < 0.2) // Bottom face
 							return float2(0.25, 0.75);
 						return float2(0.0, 0.5); // Side faces
 					}
-					// Dirt
-					else if (blockType < 0.2) {
-						return float2(0.25, 0.75);
-					}
-					// Stone
-					else if (blockType < 0.3) {
-						return float2(0.25, 0.5);
-					}
-					// Deepslate
-					else if (blockType < 0.4) {
+					// Deepslate (4)
+					else if (blockType < 4.5) {
 						if (faceIndex < 0.2) // Top or bottom face
 							return float2(0.5, 0.5);
 						return float2(0.5, 0.75); // Side faces
 					}
-					// Sand
-					else if (blockType < 0.5) {
+					// Sand (5)
+					else if (blockType < 5.5) {
 						return float2(0.75, 0.75);
 					}
 					// Default

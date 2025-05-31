@@ -705,8 +705,8 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Store block type in color.r (normalized to 0-1 range)
-        float blockType = (float)type / 10.0f; // Assuming we have less than 10 block types
+        // Store block type in color.r (using the actual enum value)
+        float blockType = (float)type;
         for (int i = 0; i < 4; i++)
         {
             colors.Add(new Color(blockType, 0, 0, 1));
