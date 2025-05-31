@@ -85,27 +85,395 @@ public class Chunk : MonoBehaviour
 
     public void GenerateMesh()
     {
-        //Stopwatch sw = new();
-        //sw.Start();
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+
+        // Process top and bottom faces with greedy meshing
         for (int y = 0; y < chunkHeight; y++)
         {
+            bool[,] topMask = new bool[chunkSize, chunkSize];
+            bool[,] bottomMask = new bool[chunkSize, chunkSize];
+            Voxel.VoxelType[,] topTypes = new Voxel.VoxelType[chunkSize, chunkSize];
+            Voxel.VoxelType[,] bottomTypes = new Voxel.VoxelType[chunkSize, chunkSize];
+
+            // Create masks for this layer
             for (int x = 0; x < chunkSize; x++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    if (voxels[x, y, z].type == Voxel.VoxelType.Air)
+                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
                     {
-                        continue;
+                        // Check top face
+                        if (IsVoxelHiddenInChunk(x, y + 1, z))
+                        {
+                            topMask[x, z] = true;
+                            topTypes[x, z] = voxels[x, y, z].type;
+                        }
+
+                        // Check bottom face
+                        if (IsVoxelHiddenInChunk(x, y - 1, z))
+                        {
+                            bottomMask[x, z] = true;
+                            bottomTypes[x, z] = voxels[x, y, z].type;
+                        }
                     }
-                    else
+                }
+            }
+
+            // Greedy meshing for top faces
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (!topMask[x, z]) continue;
+
+                    Voxel.VoxelType type = topTypes[x, z];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width
+                    while (x + width < chunkSize && topMask[x + width, z] && topTypes[x + width, z] == type)
                     {
-                        ProcessVoxel(x, y, z);
+                        width++;
+                    }
+
+                    // Find height
+                    bool canExpand = true;
+                    while (canExpand && z + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!topMask[x + i, z + height] || topTypes[x + i, z + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, width, height, 0, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            topMask[x + i, z + j] = false;
+                        }
+                    }
+                }
+            }
+
+            // Greedy meshing for bottom faces
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (!bottomMask[x, z]) continue;
+
+                    Voxel.VoxelType type = bottomTypes[x, z];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width
+                    while (x + width < chunkSize && bottomMask[x + width, z] && bottomTypes[x + width, z] == type)
+                    {
+                        width++;
+                    }
+
+                    // Find height
+                    bool canExpand = true;
+                    while (canExpand && z + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!bottomMask[x + i, z + height] || bottomTypes[x + i, z + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, width, height, 1, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            bottomMask[x + i, z + j] = false;
+                        }
                     }
                 }
             }
         }
 
-        if (vertices.Count > 0) {
+        // Process side faces with greedy meshing
+        // Left and right faces
+        for (int x = 0; x < chunkSize; x++)
+        {
+            bool[,] leftMask = new bool[chunkHeight, chunkSize];
+            bool[,] rightMask = new bool[chunkHeight, chunkSize];
+            Voxel.VoxelType[,] leftTypes = new Voxel.VoxelType[chunkHeight, chunkSize];
+            Voxel.VoxelType[,] rightTypes = new Voxel.VoxelType[chunkHeight, chunkSize];
+
+            // Create masks for this slice
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    {
+                        // Check left face
+                        if (IsVoxelHiddenInChunk(x - 1, y, z))
+                        {
+                            leftMask[y, z] = true;
+                            leftTypes[y, z] = voxels[x, y, z].type;
+                        }
+
+                        // Check right face
+                        if (IsVoxelHiddenInChunk(x + 1, y, z))
+                        {
+                            rightMask[y, z] = true;
+                            rightTypes[y, z] = voxels[x, y, z].type;
+                        }
+                    }
+                }
+            }
+
+            // Greedy meshing for left faces
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (!leftMask[y, z]) continue;
+
+                    Voxel.VoxelType type = leftTypes[y, z];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width (vertical)
+                    while (y + width < chunkHeight && leftMask[y + width, z] && leftTypes[y + width, z] == type)
+                    {
+                        width++;
+                    }
+
+                    // Find height (horizontal)
+                    bool canExpand = true;
+                    while (canExpand && z + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!leftMask[y + i, z + height] || leftTypes[y + i, z + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, width, height, 2, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            leftMask[y + i, z + j] = false;
+                        }
+                    }
+                }
+            }
+
+            // Greedy meshing for right faces
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    if (!rightMask[y, z]) continue;
+
+                    Voxel.VoxelType type = rightTypes[y, z];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width (vertical)
+                    while (y + width < chunkHeight && rightMask[y + width, z] && rightTypes[y + width, z] == type)
+                    {
+                        width++;
+                    }
+
+                    // Find height (horizontal)
+                    bool canExpand = true;
+                    while (canExpand && z + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!rightMask[y + i, z + height] || rightTypes[y + i, z + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, width, height, 3, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            rightMask[y + i, z + j] = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Front and back faces
+        for (int z = 0; z < chunkSize; z++)
+        {
+            bool[,] frontMask = new bool[chunkHeight, chunkSize];
+            bool[,] backMask = new bool[chunkHeight, chunkSize];
+            Voxel.VoxelType[,] frontTypes = new Voxel.VoxelType[chunkHeight, chunkSize];
+            Voxel.VoxelType[,] backTypes = new Voxel.VoxelType[chunkHeight, chunkSize];
+
+            // Create masks for this slice
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int x = 0; x < chunkSize; x++)
+                {
+                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    {
+                        // Check front face
+                        if (IsVoxelHiddenInChunk(x, y, z + 1))
+                        {
+                            frontMask[y, x] = true;
+                            frontTypes[y, x] = voxels[x, y, z].type;
+                        }
+
+                        // Check back face
+                        if (IsVoxelHiddenInChunk(x, y, z - 1))
+                        {
+                            backMask[y, x] = true;
+                            backTypes[y, x] = voxels[x, y, z].type;
+                        }
+                    }
+                }
+            }
+
+            // Greedy meshing for front faces
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int x = 0; x < chunkSize; x++)
+                {
+                    if (!frontMask[y, x]) continue;
+
+                    Voxel.VoxelType type = frontTypes[y, x];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width (vertical)
+                    while (y + width < chunkHeight && frontMask[y + width, x] && frontTypes[y + width, x] == type)
+                    {
+                        width++;
+                    }
+
+                    // Find height (horizontal)
+                    bool canExpand = true;
+                    while (canExpand && x + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!frontMask[y + i, x + height] || frontTypes[y + i, x + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, height, width, 4, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            frontMask[y + i, x + j] = false;
+                        }
+                    }
+                }
+            }
+
+            // Greedy meshing for back faces
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int x = 0; x < chunkSize; x++)
+                {
+                    if (!backMask[y, x]) continue;
+
+                    Voxel.VoxelType type = backTypes[y, x];
+                    int width = 1;
+                    int height = 1;
+
+                    // Find width (vertical)
+                    while (y + width < chunkHeight && backMask[y + width, x] && backTypes[y + width, x] == type)
+                    {
+                        width++;
+                    }
+
+                    // Find height (horizontal)
+                    bool canExpand = true;
+                    while (canExpand && x + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!backMask[y + i, x + height] || backTypes[y + i, x + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
+
+                    // Create the quad
+                    Vector3 pos = new Vector3(x, y, z);
+                    AddGreedyQuad(pos, height, width, 5, type);
+
+                    // Clear the mask for this rectangle
+                    for (int i = 0; i < width; i++)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            backMask[y + i, x + j] = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (vertices.Count > 0)
+        {
             Mesh mesh = new()
             {
                 vertices = vertices.ToArray(),
@@ -114,16 +482,244 @@ public class Chunk : MonoBehaviour
                 colors = colors.ToArray()
             };
 
-            mesh.RecalculateNormals(); // Important for lighting
-
+            mesh.RecalculateNormals();
             meshFilter.mesh = mesh;
             meshCollider.sharedMesh = mesh;
-
-            // Apply a material or texture if needed
             meshRenderer.material = World.Instance.VoxelMaterial;
         }
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Mesh generation for {name} took {sw.ElapsedMilliseconds} milliseconds");
+    }
+
+    private void GreedyMeshLayer(int y, bool isTop)
+    {
+        bool[,] mask = new bool[chunkSize, chunkSize];
+        Voxel.VoxelType[,] types = new Voxel.VoxelType[chunkSize, chunkSize];
+
+        // Create the mask and type arrays
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                {
+                    bool shouldRender = isTop ? 
+                        IsVoxelHiddenInChunk(x, y + 1, z) : 
+                        IsVoxelHiddenInChunk(x, y - 1, z);
+
+                    if (shouldRender)
+                    {
+                        mask[x, z] = true;
+                        types[x, z] = voxels[x, y, z].type;
+                    }
+                }
+            }
+        }
+
+        // Greedy meshing
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                if (!mask[x, z]) continue;
+
+                Voxel.VoxelType type = types[x, z];
+                int width = 1;
+                int height = 1;
+
+                // Find width
+                while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
+                {
+                    width++;
+                }
+
+                // Find height
+                bool canExpand = true;
+                while (canExpand && z + height < chunkSize)
+                {
+                    for (int i = 0; i < width; i++)
+                    {
+                        if (!mask[x + i, z + height] || types[x + i, z + height] != type)
+                        {
+                            canExpand = false;
+                            break;
+                        }
+                    }
+                    if (canExpand) height++;
+                }
+
+                // Create the quad
+                Vector3 pos = new Vector3(x, y, z);
+                if (isTop)
+                {
+                    AddGreedyQuad(pos, width, height, 0, type); // Top face
+                }
+                else
+                {
+                    AddGreedyQuad(pos, width, height, 1, type); // Bottom face
+                }
+
+                // Clear the mask for this rectangle
+                for (int i = 0; i < width; i++)
+                {
+                    for (int j = 0; j < height; j++)
+                    {
+                        mask[x + i, z + j] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    private void GreedyMeshSlice(int slice, bool isX, bool isPositive)
+    {
+        bool[,] mask = new bool[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
+        Voxel.VoxelType[,] types = new Voxel.VoxelType[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
+
+        // Create the mask and type arrays
+        for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
+        {
+            for (int j = 0; j < (isX ? chunkSize : chunkHeight); j++)
+            {
+                int x = isX ? slice : j;
+                int y = isX ? i : slice;
+                int z = isX ? j : i;
+
+                if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                {
+                    bool shouldRender = isX ?
+                        (isPositive ? IsVoxelHiddenInChunk(x + 1, y, z) : IsVoxelHiddenInChunk(x - 1, y, z)) :
+                        (isPositive ? IsVoxelHiddenInChunk(x, y, z + 1) : IsVoxelHiddenInChunk(x, y, z - 1));
+
+                    if (shouldRender)
+                    {
+                        mask[i, j] = true;
+                        types[i, j] = voxels[x, y, z].type;
+                    }
+                }
+            }
+        }
+
+        // Greedy meshing
+        for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
+        {
+            for (int j = 0; j < (isX ? chunkSize : chunkHeight); j++)
+            {
+                if (!mask[i, j]) continue;
+
+                Voxel.VoxelType type = types[i, j];
+                int width = 1;
+                int height = 1;
+
+                // Find width
+                while (j + width < (isX ? chunkSize : chunkHeight) && mask[i, j + width] && types[i, j + width] == type)
+                {
+                    width++;
+                }
+
+                // Find height
+                bool canExpand = true;
+                while (canExpand && i + height < (isX ? chunkHeight : chunkSize))
+                {
+                    for (int k = 0; k < width; k++)
+                    {
+                        if (!mask[i + height, j + k] || types[i + height, j + k] != type)
+                        {
+                            canExpand = false;
+                            break;
+                        }
+                    }
+                    if (canExpand) height++;
+                }
+
+                // Create the quad
+                int x = isX ? slice : j;
+                int y = isX ? i : slice;
+                int z = isX ? j : i;
+                Vector3 pos = new Vector3(x, y, z);
+
+                if (isX)
+                {
+                    if (isPositive)
+                        AddGreedyQuad(pos, height, width, 3, type); // Right face
+                    else
+                        AddGreedyQuad(pos, height, width, 2, type); // Left face
+                }
+                else
+                {
+                    if (isPositive)
+                        AddGreedyQuad(pos, width, height, 4, type); // Front face
+                    else
+                        AddGreedyQuad(pos, width, height, 5, type); // Back face
+                }
+
+                // Clear the mask for this rectangle
+                for (int k = 0; k < width; k++)
+                {
+                    for (int l = 0; l < height; l++)
+                    {
+                        mask[i + l, j + k] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
+    {
+        Vector2[] faceUVs = GetFaceUVs(type, faceIndex);
+        int vertCount = vertices.Count;
+
+        switch (faceIndex)
+        {
+            case 0: // Top Face
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z));
+                vertices.Add(new Vector3(position.x, position.y + 1, position.z + height));
+                vertices.Add(new Vector3(position.x + width, position.y + 1, position.z + height));
+                vertices.Add(new Vector3(position.x + width, position.y + 1, position.z));
+                break;
+            case 1: // Bottom Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x + width, position.y, position.z));
+                vertices.Add(new Vector3(position.x + width, position.y, position.z + height));
+                vertices.Add(new Vector3(position.x, position.y, position.z + height));
+                break;
+            case 2: // Left Face
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z + height));
+                vertices.Add(new Vector3(position.x, position.y + width, position.z + height));
+                vertices.Add(new Vector3(position.x, position.y + width, position.z));
+                break;
+            case 3: // Right Face
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z + height));
+                vertices.Add(new Vector3(position.x + 1, position.y, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + width, position.z));
+                vertices.Add(new Vector3(position.x + 1, position.y + width, position.z + height));
+                break;
+            case 4: // Front Face
+                vertices.Add(new Vector3(position.x, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + width, position.y, position.z + 1));
+                vertices.Add(new Vector3(position.x + width, position.y + height, position.z + 1));
+                vertices.Add(new Vector3(position.x, position.y + height, position.z + 1));
+                break;
+            case 5: // Back Face
+                vertices.Add(new Vector3(position.x + width, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y, position.z));
+                vertices.Add(new Vector3(position.x, position.y + height, position.z));
+                vertices.Add(new Vector3(position.x + width, position.y + height, position.z));
+                break;
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            colors.Add(new Color(0, 0, 0, 1));
+        }
+        uvs.AddRange(faceUVs);
+
+        triangles.Add(vertCount);
+        triangles.Add(vertCount + 1);
+        triangles.Add(vertCount + 2);
+        triangles.Add(vertCount);
+        triangles.Add(vertCount + 2);
+        triangles.Add(vertCount + 3);
     }
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
@@ -159,30 +755,14 @@ public class Chunk : MonoBehaviour
     {
         if (voxels == null || x < 0 || x >= voxels.GetLength(0) || y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
         {
-            return; // Skip processing if the array is not initialized or indices are out of bounds
+            return;
         }
 
         Voxel voxel = voxels[x, y, z];
         if (voxel.isActive)
         {
-            bool[] facesVisible = new bool[6];
-            
-            // Check each face
-            facesVisible[0] = IsVoxelHiddenInChunk(x, y + 1, z); // Top
-            facesVisible[1] = IsVoxelHiddenInChunk(x, y - 1, z); // Bottom
-            facesVisible[2] = IsVoxelHiddenInChunk(x - 1, y, z); // Left
-            facesVisible[3] = IsVoxelHiddenInChunk(x + 1, y, z); // Right
-            facesVisible[4] = IsVoxelHiddenInChunk(x, y, z + 1); // Front
-            facesVisible[5] = IsVoxelHiddenInChunk(x, y, z - 1); // Back
-
-            // Only add faces that are visible
-            for (int i = 0; i < facesVisible.Length; i++)
-            {
-                if (facesVisible[i])
-                {
-                    AddFaceData(vertices, triangles, uvs, colors, i, voxel.position, voxel.type);
-                }
-            }
+            // We'll handle face generation in GenerateMesh instead
+            return;
         }
     }
 
