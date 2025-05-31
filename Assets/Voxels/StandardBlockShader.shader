@@ -41,7 +41,9 @@
 				float maxGlobalLightLevel;
 
 				// Block type is stored in color.r
-				// 0 = Air, 1 = Stone, 2 = Dirt, 3 = Grass, 4 = Deepslate, 5 = Sand
+				// Sky light is stored in color.g
+				// Block light is stored in color.b
+				// Transparency is stored in color.a
 
 				float2 GetTileOffset(float blockType, float faceIndex) {
 					// Stone (1)
@@ -117,13 +119,25 @@
 					// Sample the texture
 					fixed4 col = tex2D(_MainTex, uv);
 
-					// Apply lighting
-					float shade = (maxGlobalLightLevel - minGlobalLightLevel) * GlobalLightLevel + minGlobalLightLevel;
-					shade *= i.color.a;
-					shade = clamp(1 - shade, minGlobalLightLevel, maxGlobalLightLevel);
+					// Calculate lighting
+					float skyLight = i.color.g;
+					float blockLight = i.color.b;
+					float transparency = i.color.a;
 
-					clip(col.a - 1);
-					col = lerp(col, float4(0, 0, 0, 1), shade);
+					// Combine sky light and block light, taking the maximum
+					float lightLevel = max(skyLight, blockLight);
+					
+					// Apply global light level
+					lightLevel *= GlobalLightLevel;
+					
+					// Calculate final shade (no inversion needed)
+					float shade = lerp(minGlobalLightLevel, maxGlobalLightLevel, lightLevel);
+
+					// Apply transparency
+					clip(col.a - 0.5);
+					
+					// Apply lighting
+					col.rgb *= shade;
 
 					return col;
 				}

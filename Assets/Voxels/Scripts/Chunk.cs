@@ -705,11 +705,21 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Store block type in color.r (using the actual enum value)
-        float blockType = (float)type;
+        // Get the voxel at this position
+        int x = Mathf.FloorToInt(position.x);
+        int y = Mathf.FloorToInt(position.y);
+        int z = Mathf.FloorToInt(position.z);
+        Voxel voxel = voxels[x, y, z];
+
+        // Store block type in color.r, sky light in color.g, block light in color.b, transparency in color.a
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(blockType, 0, 0, 1));
+            colors.Add(new Color(
+                (float)type, // Block type
+                voxel.skyLight,
+                voxel.blockLight,
+                voxel.transparency
+            ));
         }
 
         triangles.Add(vertCount);
@@ -722,18 +732,15 @@ public class Chunk : MonoBehaviour
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
     {
-        //Stopwatch sw = new();
-        //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
         this.continentalnessCurve = continentalnessCurve;
         this.noiseFrequency = World.Instance.noiseFrequency;
         this.noiseAmplitude = World.Instance.noiseAmplitude;
-        //this.lightFalloff = World.lightFalloff;
         voxels = new Voxel[size, height, size];
 
         GenerateVoxelData(transform.position);
-        //CalculateLight();
+        CalculateLight(); // Calculate lighting after generating voxel data
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -744,9 +751,7 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        GenerateMesh(); // Call after ensuring all necessary components and data are set
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
+        GenerateMesh();
     }
 
     private void ProcessVoxel(int x, int y, int z)
@@ -1019,6 +1024,135 @@ public class Chunk : MonoBehaviour
                 triangles = combinedTriangles.ToArray(),
                 uv = combinedUVs.ToArray(),
                 colors = combinedColors.ToArray()
+            };
+
+            mesh.RecalculateNormals();
+            meshFilter.mesh = mesh;
+            meshCollider.sharedMesh = mesh;
+        }
+    }
+
+    private bool IsInsideChunk(Vector3Int pos)
+    {
+        return pos.x >= 0 && pos.x < chunkSize && 
+               pos.y >= 0 && pos.y < chunkHeight && 
+               pos.z >= 0 && pos.z < chunkSize;
+    }
+
+    public void CalculateLight()
+    {
+        Queue<Vector3Int> litVoxels = new();
+
+        // First pass: Calculate sky light from top to bottom
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                float lightLevel = World.Instance.globalLightLevel; // Use global light level as initial value
+
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    Voxel thisVoxel = voxels[x, y, z];
+
+                    if (thisVoxel.type != Voxel.VoxelType.Air)
+                    {
+                        // Reduce light level based on block transparency
+                        lightLevel *= (1f - thisVoxel.transparency);
+                    }
+
+                    thisVoxel.skyLight = lightLevel;
+                    voxels[x, y, z] = thisVoxel;
+
+                    // If this block can propagate light, add it to the queue
+                    if (lightLevel > World.lightFalloff)
+                    {
+                        litVoxels.Enqueue(new Vector3Int(x, y, z));
+                    }
+                }
+            }
+        }
+
+        // Second pass: Propagate light to neighbors
+        while (litVoxels.Count > 0)
+        {
+            Vector3Int v = litVoxels.Dequeue();
+            Voxel sourceVoxel = voxels[v.x, v.y, v.z];
+            float sourceLight = Mathf.Max(sourceVoxel.skyLight, sourceVoxel.blockLight);
+
+            // Check all 6 neighbors
+            for (int p = 0; p < 6; p++)
+            {
+                Vector3Int neighbor = GetNeighborPosition(v, p);
+                
+                if (IsInsideChunk(neighbor))
+                {
+                    Voxel neighborVoxel = voxels[neighbor.x, neighbor.y, neighbor.z];
+                    float newLight = sourceLight - World.lightFalloff;
+
+                    // Update light if the new light level is higher
+                    if (newLight > neighborVoxel.skyLight)
+                    {
+                        neighborVoxel.skyLight = newLight;
+                        voxels[neighbor.x, neighbor.y, neighbor.z] = neighborVoxel;
+
+                        // If this block can propagate light further, add it to the queue
+                        if (newLight > World.lightFalloff)
+                        {
+                            litVoxels.Enqueue(neighbor);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update mesh with new lighting values
+        UpdateMeshWithLighting();
+    }
+
+    private Vector3Int GetNeighborPosition(Vector3Int pos, int direction)
+    {
+        switch (direction)
+        {
+            case 0: return new Vector3Int(pos.x, pos.y + 1, pos.z); // Up
+            case 1: return new Vector3Int(pos.x, pos.y - 1, pos.z); // Down
+            case 2: return new Vector3Int(pos.x - 1, pos.y, pos.z); // Left
+            case 3: return new Vector3Int(pos.x + 1, pos.y, pos.z); // Right
+            case 4: return new Vector3Int(pos.x, pos.y, pos.z + 1); // Front
+            case 5: return new Vector3Int(pos.x, pos.y, pos.z - 1); // Back
+            default: return pos;
+        }
+    }
+
+    private void UpdateMeshWithLighting()
+    {
+        // Update vertex colors with lighting information
+        for (int i = 0; i < vertices.Count; i++)
+        {
+            Vector3 vertexPos = vertices[i];
+            int x = Mathf.FloorToInt(vertexPos.x);
+            int y = Mathf.FloorToInt(vertexPos.y);
+            int z = Mathf.FloorToInt(vertexPos.z);
+
+            if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
+            {
+                Voxel voxel = voxels[x, y, z];
+                colors[i] = new Color(
+                    colors[i].r, // Block type
+                    voxel.skyLight,
+                    voxel.blockLight,
+                    voxel.transparency
+                );
+            }
+        }
+
+        // Update the mesh
+        if (vertices.Count > 0)
+        {
+            Mesh mesh = new()
+            {
+                vertices = vertices.ToArray(),
+                triangles = triangles.ToArray(),
+                colors = colors.ToArray()
             };
 
             mesh.RecalculateNormals();

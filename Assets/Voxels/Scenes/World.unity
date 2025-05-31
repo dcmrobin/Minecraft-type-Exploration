@@ -222,6 +222,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9d83323c8e55bd4ab73ccb51a0b669e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  globalLightLevel: 1
+  dayColor: {r: 0.6367924, g: 0.9566627, b: 1, a: 1}
+  nightColor: {r: 0.1, g: 0.1, b: 0.2, a: 1}
   continentalnessCurve:
     serializedVersion: 2
     m_Curve:
@@ -329,22 +332,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 441482e8936e35048a1dffac814e3ef8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Profile: {fileID: 0}
-  m_NeedUpdateStaticLightingSky: 0
-  m_StaticLightingSkyUniqueID: 0
-  m_LastComputedHash: 0
-  m_StaticLightingCloudsUniqueID: 0
-  m_LastComputedCloudHash: 0
-  m_SkySettings: {fileID: 0}
-  m_SkySettingsFromProfile: {fileID: 0}
-  m_CloudSettings: {fileID: 0}
-  m_CloudSettingsFromProfile: {fileID: 0}
-  m_StaticLightingVolumetricClouds: 0
-  m_LastComputedVolumetricCloudHash: 0
-  m_VolumetricClouds: {fileID: 0}
-  m_VolumetricCloudSettingsFromProfile: {fileID: 0}
-  m_VolumeSkyList: []
-  m_VolumeCloudsList: []
 --- !u!4 &1795558817
 Transform:
   m_ObjectHideFlags: 1
