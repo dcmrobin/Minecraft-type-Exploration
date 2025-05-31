@@ -8,27 +8,11 @@ public struct Voxel
     public Vector3 position;
     public VoxelType type;
     public bool isActive;
-    public float lightLevel; // 0.0 to 1.0, where 1.0 is full brightness
 
-    public static Voxel CreateDefault()
+    public Voxel(Vector3 position, VoxelType type, bool isActive)
     {
-        return new Voxel
-        {
-            type = VoxelType.Air,
-            position = Vector3.zero,
-            isActive = false,
-            lightLevel = 1.0f
-        };
-    }
-
-    public static Voxel Create(VoxelType type, Vector3 position)
-    {
-        return new Voxel
-        {
-            type = type,
-            position = position,
-            isActive = type != VoxelType.Air,
-            lightLevel = 1.0f
-        };
+        this.position = position;
+        this.type = type;
+        this.isActive = isActive;
     }
 }
