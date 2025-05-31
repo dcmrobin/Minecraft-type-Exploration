@@ -140,9 +140,6 @@ public class World : MonoBehaviour
 
     private void CreateChunk(Vector3Int chunkPos)
     {
-        //Stopwatch sw = new();
-        //sw.Start();
-
         GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
         chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, useVerticalChunks ? chunkPos.y * chunkHeight : 0, chunkPos.z * chunkSize);
         chunkObject.transform.parent = transform;
@@ -152,8 +149,33 @@ public class World : MonoBehaviour
 
         chunks[chunkPos] = newChunk;
 
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Chunk creation at position {chunkPos} took {sw.ElapsedMilliseconds} milliseconds.");
+        // Update neighboring chunks
+        UpdateNeighboringChunks(chunkPos);
+    }
+
+    private void UpdateNeighboringChunks(Vector3Int chunkPos)
+    {
+        // Check all 6 neighboring chunks
+        Vector3Int[] neighborOffsets = new Vector3Int[]
+        {
+            new Vector3Int(1, 0, 0),   // right
+            new Vector3Int(-1, 0, 0),  // left
+            new Vector3Int(0, 1, 0),   // up
+            new Vector3Int(0, -1, 0),  // down
+            new Vector3Int(0, 0, 1),   // front
+            new Vector3Int(0, 0, -1)   // back
+        };
+
+        foreach (Vector3Int offset in neighborOffsets)
+        {
+            Vector3Int neighborPos = chunkPos + offset;
+            if (chunks.TryGetValue(neighborPos, out Chunk neighborChunk))
+            {
+                // Regenerate the mesh of the neighboring chunk
+                neighborChunk.ResetChunk();
+                neighborChunk.GenerateMesh();
+            }
+        }
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkPos)

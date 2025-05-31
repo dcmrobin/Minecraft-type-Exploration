@@ -348,12 +348,12 @@ public class Chunk : MonoBehaviour
         voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
 
         // Clear mesh data
-        if (meshFilter != null && meshFilter.sharedMesh != null) {
-            meshFilter.sharedMesh.Clear();
-            vertices.Clear();
-            triangles.Clear();
-            uvs.Clear();
-            colors.Clear();
-        }
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+
+        // Regenerate voxel data
+        GenerateVoxelData(transform.position);
     }
 }
