@@ -1055,38 +1055,108 @@ public class Chunk : MonoBehaviour
                pos.z >= 0 && pos.z < chunkSize;
     }
 
+    private bool IsBlockAdjacentToAir(int x, int y, int z)
+    {
+        // Check all 6 neighbors
+        Vector3Int[] neighbors = new Vector3Int[]
+        {
+            new Vector3Int(x, y + 1, z), // Up
+            new Vector3Int(x, y - 1, z), // Down
+            new Vector3Int(x - 1, y, z), // Left
+            new Vector3Int(x + 1, y, z), // Right
+            new Vector3Int(x, y, z + 1), // Front
+            new Vector3Int(x, y, z - 1)  // Back
+        };
+
+        foreach (Vector3Int neighborPos in neighbors)
+        {
+            // If neighbor is outside chunk bounds, check in world
+            if (neighborPos.x < 0 || neighborPos.x >= chunkSize ||
+                neighborPos.y < 0 || neighborPos.y >= chunkHeight ||
+                neighborPos.z < 0 || neighborPos.z >= chunkSize)
+            {
+                Vector3Int worldPos = new Vector3Int(
+                    Mathf.FloorToInt(pos.x) + neighborPos.x,
+                    Mathf.FloorToInt(pos.y) + neighborPos.y,
+                    Mathf.FloorToInt(pos.z) + neighborPos.z
+                );
+                Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
+                if (neighborVoxel.type == Voxel.VoxelType.Air)
+                    return true;
+            }
+            else
+            {
+                // Check within chunk
+                if (voxels[neighborPos.x, neighborPos.y, neighborPos.z].type == Voxel.VoxelType.Air)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     public void CalculateLight()
     {
-        // For each voxel in the chunk
+        // First pass: Calculate initial sky exposure
         for (int x = 0; x < chunkSize; x++)
         {
             for (int z = 0; z < chunkSize; z++)
             {
-                // Start from the top and work down
                 for (int y = chunkHeight - 1; y >= 0; y--)
                 {
                     Voxel voxel = voxels[x, y, z];
-                    
-                    // Skip air blocks
                     if (voxel.type == Voxel.VoxelType.Air)
                         continue;
 
+                    // Convert to world position
+                    Vector3Int worldPos = new Vector3Int(
+                        Mathf.FloorToInt(pos.x) + x,
+                        Mathf.FloorToInt(pos.y) + y,
+                        Mathf.FloorToInt(pos.z) + z
+                    );
+
                     // Check if this block is exposed to the sky
                     bool isExposedToSky = true;
-                    
-                    // First check within this chunk
-                    for (int checkY = y + 1; checkY < chunkHeight; checkY++)
+                    for (int checkY = worldPos.y + 1; checkY < World.Instance.chunkHeight * World.Instance.worldSize; checkY++)
                     {
-                        if (voxels[x, checkY, z].type != Voxel.VoxelType.Air)
+                        Vector3Int checkPos = new Vector3Int(worldPos.x, checkY, worldPos.z);
+                        Voxel checkVoxel = World.Instance.GetVoxelInWorld(checkPos);
+                        
+                        if (checkVoxel.type != Voxel.VoxelType.Air)
                         {
                             isExposedToSky = false;
                             break;
                         }
                     }
 
-                    // If we haven't found a block in this chunk, check neighboring chunks
-                    if (isExposedToSky)
+                    // Set initial light value (only 0, 0.5, or 1)
+                    voxel.skyLight = isExposedToSky ? 1f : 0.5f;
+                    voxel.blockLight = 0f;
+                    voxels[x, y, z] = voxel;
+                }
+            }
+        }
+
+        // Second pass: Propagate light
+        bool lightChanged;
+        int maxIterations = 16; // Prevent infinite loops
+        int currentIteration = 0;
+        do
+        {
+            lightChanged = false;
+            currentIteration++;
+
+            // Process all voxels in the chunk
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int y = 0; y < chunkHeight; y++)
+                {
+                    for (int z = 0; z < chunkSize; z++)
                     {
+                        Voxel currentVoxel = voxels[x, y, z];
+                        if (currentVoxel.type == Voxel.VoxelType.Air)
+                            continue;
+
                         // Convert to world position
                         Vector3Int worldPos = new Vector3Int(
                             Mathf.FloorToInt(pos.x) + x,
@@ -1094,27 +1164,88 @@ public class Chunk : MonoBehaviour
                             Mathf.FloorToInt(pos.z) + z
                         );
 
-                        // Check blocks above in world space
-                        for (int checkY = worldPos.y + 1; checkY < World.Instance.chunkHeight * World.Instance.worldSize; checkY++)
+                        // Check all 6 neighbors in world space
+                        Vector3Int[] neighbors = new Vector3Int[]
                         {
-                            Vector3Int checkPos = new Vector3Int(worldPos.x, checkY, worldPos.z);
-                            Voxel checkVoxel = World.Instance.GetVoxelInWorld(checkPos);
-                            
-                            if (checkVoxel.type != Voxel.VoxelType.Air)
+                            new Vector3Int(worldPos.x, worldPos.y + 1, worldPos.z), // Up
+                            new Vector3Int(worldPos.x, worldPos.y - 1, worldPos.z), // Down
+                            new Vector3Int(worldPos.x - 1, worldPos.y, worldPos.z), // Left
+                            new Vector3Int(worldPos.x + 1, worldPos.y, worldPos.z), // Right
+                            new Vector3Int(worldPos.x, worldPos.y, worldPos.z + 1), // Front
+                            new Vector3Int(worldPos.x, worldPos.y, worldPos.z - 1)  // Back
+                        };
+
+                        foreach (Vector3Int neighborWorldPos in neighbors)
+                        {
+                            // Get neighbor voxel from world
+                            Voxel neighborVoxel = World.Instance.GetVoxelInWorld(neighborWorldPos);
+                            if (neighborVoxel.type == Voxel.VoxelType.Air)
+                        continue;
+
+                            // Check if neighbor is adjacent to air in world space
+                            bool isNeighborAdjacentToAir = false;
+                            Vector3Int[] neighborNeighbors = new Vector3Int[]
                             {
-                                isExposedToSky = false;
-                                break;
+                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y + 1, neighborWorldPos.z),
+                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y - 1, neighborWorldPos.z),
+                                new Vector3Int(neighborWorldPos.x - 1, neighborWorldPos.y, neighborWorldPos.z),
+                                new Vector3Int(neighborWorldPos.x + 1, neighborWorldPos.y, neighborWorldPos.z),
+                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y, neighborWorldPos.z + 1),
+                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y, neighborWorldPos.z - 1)
+                            };
+
+                            foreach (Vector3Int nnPos in neighborNeighbors)
+                            {
+                                Voxel nnVoxel = World.Instance.GetVoxelInWorld(nnPos);
+                                if (nnVoxel.type == Voxel.VoxelType.Air)
+                                {
+                                    isNeighborAdjacentToAir = true;
+                                    break;
+                                }
+                            }
+
+                            if (!isNeighborAdjacentToAir)
+                                continue;
+
+                            // For light level 1, propagate to 0.5
+                            // For light level 0.5, propagate to 0
+                            float newLight = currentVoxel.skyLight == 1f ? 0.5f : 0f;
+
+                            // If the new light value is higher than the neighbor's current light
+                            if (newLight > neighborVoxel.skyLight)
+                            {
+                                // Get the chunk that contains this neighbor
+                                Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(neighborWorldPos);
+                                Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
+
+                                if (neighborChunk != null)
+                                {
+                                    // Convert world position to local position in the neighbor chunk
+                                    Vector3Int localPos = new Vector3Int(
+                                        neighborWorldPos.x - (neighborChunkPos.x * chunkSize),
+                                        neighborWorldPos.y - (neighborChunkPos.y * chunkHeight),
+                                        neighborWorldPos.z - (neighborChunkPos.z * chunkSize)
+                                    );
+
+                                    // Update the neighbor's lighting
+                                    Voxel localNeighborVoxel = neighborChunk.voxels[localPos.x, localPos.y, localPos.z];
+                                    localNeighborVoxel.skyLight = newLight;
+                                    neighborChunk.voxels[localPos.x, localPos.y, localPos.z] = localNeighborVoxel;
+
+                                    // If this is a different chunk, we need to regenerate its mesh
+                                    if (neighborChunk != this)
+                                    {
+                                        neighborChunk.GenerateMesh();
+                                    }
+
+                                    lightChanged = true;
+                                }
                             }
                         }
                     }
-
-                    // If exposed to sky, set light to 1, otherwise 0.5
-                    voxel.skyLight = isExposedToSky ? 1f : 0.5f;
-                    voxel.blockLight = 0f; // We're not using block light for now
-                    voxels[x, y, z] = voxel;
                 }
             }
-        }
+        } while (lightChanged && currentIteration < maxIterations);
 
         // Update mesh with new lighting values
         UpdateMeshWithLighting();

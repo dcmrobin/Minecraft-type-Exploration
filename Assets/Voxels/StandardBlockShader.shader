@@ -119,19 +119,9 @@
 					// Sample the texture
 					fixed4 col = tex2D(_MainTex, uv);
 
-					// Calculate lighting based on face and sky exposure
-					float skyLight = i.color.g;
+					// Get the light value directly from the voxel data (stored in color.g)
+					float shade = i.color.g;
 					
-					// Apply different lighting based on face
-					float shade;
-					if (faceIndex == 0.0) { // Top face
-						shade = skyLight; // Use full sky light for top face
-					} else if (faceIndex == 1.0) { // Bottom face
-						shade = 0.5; // Always dark for bottom face
-					} else { // Side faces
-						shade = lerp(0.5, skyLight, 0.5); // Interpolate between dark and sky light
-					}
-
 					// Apply global light level
 					shade *= GlobalLightLevel;
 					
@@ -141,7 +131,7 @@
 					// Apply transparency
 					clip(col.a - 0.5);
 					
-					// Apply lighting
+					// Apply shading by multiplying RGB values
 					col.rgb *= shade;
 
 					return col;
