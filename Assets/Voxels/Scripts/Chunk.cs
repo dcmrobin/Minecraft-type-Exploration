@@ -491,6 +491,7 @@ public class Chunk : MonoBehaviour
     {
         bool[,] mask = new bool[chunkSize, chunkSize];
         Voxel.VoxelType[,] types = new Voxel.VoxelType[chunkSize, chunkSize];
+        float[,] lightValues = new float[chunkSize, chunkSize];
 
         // Create the mask and type arrays
         for (int x = 0; x < chunkSize; x++)
@@ -507,6 +508,7 @@ public class Chunk : MonoBehaviour
                     {
                         mask[x, z] = true;
                         types[x, z] = voxels[x, y, z].type;
+                        lightValues[x, z] = voxels[x, y, z].skyLight;
                     }
                 }
             }
@@ -520,11 +522,15 @@ public class Chunk : MonoBehaviour
                 if (!mask[x, z]) continue;
 
                 Voxel.VoxelType type = types[x, z];
+                float lightValue = lightValues[x, z];
                 int width = 1;
                 int height = 1;
 
                 // Find width
-                while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
+                while (x + width < chunkSize && 
+                       mask[x + width, z] && 
+                       types[x + width, z] == type &&
+                       Mathf.Approximately(lightValues[x + width, z], lightValue))
                 {
                     width++;
                 }
@@ -535,7 +541,9 @@ public class Chunk : MonoBehaviour
                 {
                     for (int i = 0; i < width; i++)
                     {
-                        if (!mask[x + i, z + height] || types[x + i, z + height] != type)
+                        if (!mask[x + i, z + height] || 
+                            types[x + i, z + height] != type ||
+                            !Mathf.Approximately(lightValues[x + i, z + height], lightValue))
                         {
                             canExpand = false;
                             break;
@@ -571,6 +579,7 @@ public class Chunk : MonoBehaviour
     {
         bool[,] mask = new bool[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
         Voxel.VoxelType[,] types = new Voxel.VoxelType[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
+        float[,] lightValues = new float[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
 
         // Create the mask and type arrays
         for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
@@ -591,6 +600,7 @@ public class Chunk : MonoBehaviour
                     {
                         mask[i, j] = true;
                         types[i, j] = voxels[x, y, z].type;
+                        lightValues[i, j] = voxels[x, y, z].skyLight;
                     }
                 }
             }
@@ -604,11 +614,15 @@ public class Chunk : MonoBehaviour
                 if (!mask[i, j]) continue;
 
                 Voxel.VoxelType type = types[i, j];
+                float lightValue = lightValues[i, j];
                 int width = 1;
                 int height = 1;
 
                 // Find width
-                while (j + width < (isX ? chunkSize : chunkHeight) && mask[i, j + width] && types[i, j + width] == type)
+                while (j + width < (isX ? chunkSize : chunkHeight) && 
+                       mask[i, j + width] && 
+                       types[i, j + width] == type &&
+                       Mathf.Approximately(lightValues[i, j + width], lightValue))
                 {
                     width++;
                 }
@@ -619,7 +633,9 @@ public class Chunk : MonoBehaviour
                 {
                     for (int k = 0; k < width; k++)
                     {
-                        if (!mask[i + height, j + k] || types[i + height, j + k] != type)
+                        if (!mask[i + height, j + k] || 
+                            types[i + height, j + k] != type ||
+                            !Mathf.Approximately(lightValues[i + height, j + k], lightValue))
                         {
                             canExpand = false;
                             break;
