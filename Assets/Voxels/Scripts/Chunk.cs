@@ -1069,7 +1069,7 @@ public class Chunk : MonoBehaviour
         };
 
         foreach (Vector3Int neighborPos in neighbors)
-        {
+    {
             // If neighbor is outside chunk bounds, check in world
             if (neighborPos.x < 0 || neighborPos.x >= chunkSize ||
                 neighborPos.y < 0 || neighborPos.y >= chunkHeight ||
@@ -1129,8 +1129,8 @@ public class Chunk : MonoBehaviour
                         }
                     }
 
-                    // Set initial light value (only 0, 0.5, or 1)
-                    voxel.skyLight = isExposedToSky ? 1f : 0.5f;
+                    // Set initial light value
+                    voxel.skyLight = isExposedToSky ? 1f : 0.1f;
                     voxel.blockLight = 0f;
                     voxels[x, y, z] = voxel;
                 }
@@ -1164,7 +1164,7 @@ public class Chunk : MonoBehaviour
                             Mathf.FloorToInt(pos.z) + z
                         );
 
-                        // Check all 6 neighbors in world space
+                        // Check all 6 immediate neighbors in world space
                         Vector3Int[] neighbors = new Vector3Int[]
                         {
                             new Vector3Int(worldPos.x, worldPos.y + 1, worldPos.z), // Up
@@ -1180,36 +1180,23 @@ public class Chunk : MonoBehaviour
                             // Get neighbor voxel from world
                             Voxel neighborVoxel = World.Instance.GetVoxelInWorld(neighborWorldPos);
                             if (neighborVoxel.type == Voxel.VoxelType.Air)
-                        continue;
-
-                            // Check if neighbor is adjacent to air in world space
-                            bool isNeighborAdjacentToAir = false;
-                            Vector3Int[] neighborNeighbors = new Vector3Int[]
-                            {
-                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y + 1, neighborWorldPos.z),
-                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y - 1, neighborWorldPos.z),
-                                new Vector3Int(neighborWorldPos.x - 1, neighborWorldPos.y, neighborWorldPos.z),
-                                new Vector3Int(neighborWorldPos.x + 1, neighborWorldPos.y, neighborWorldPos.z),
-                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y, neighborWorldPos.z + 1),
-                                new Vector3Int(neighborWorldPos.x, neighborWorldPos.y, neighborWorldPos.z - 1)
-                            };
-
-                            foreach (Vector3Int nnPos in neighborNeighbors)
-                            {
-                                Voxel nnVoxel = World.Instance.GetVoxelInWorld(nnPos);
-                                if (nnVoxel.type == Voxel.VoxelType.Air)
-                                {
-                                    isNeighborAdjacentToAir = true;
-                                    break;
-                                }
-                            }
-
-                            if (!isNeighborAdjacentToAir)
                                 continue;
 
-                            // For light level 1, propagate to 0.5
-                            // For light level 0.5, propagate to 0
-                            float newLight = currentVoxel.skyLight == 1f ? 0.5f : 0f;
+                            // Calculate new light value based on current light
+                            float newLight;
+                            if (currentVoxel.skyLight == 1f)
+                            {
+                                newLight = 0.5f; // First step down from full light
+                            }
+                            else if (currentVoxel.skyLight > 0.1f)
+                            {
+                                // Linear falloff from current light to minimum
+                                newLight = Mathf.Max(0.1f, currentVoxel.skyLight - 0.2f);
+                            }
+                            else
+                            {
+                                continue; // Already at minimum light
+                            }
 
                             // If the new light value is higher than the neighbor's current light
                             if (newLight > neighborVoxel.skyLight)
