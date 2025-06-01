@@ -106,12 +106,12 @@ public class World : MonoBehaviour
     {
         if (useVerticalChunks)
         {
-            // Generate chunks in a spiral pattern from the center
+            // Generate chunks in a spiral pattern from the center, but vertically from top to bottom
             int maxDistance = renderDistance;
             for (int distance = 0; distance <= maxDistance; distance++)
             {
                 // Generate chunks at this distance in a spiral
-                for (int y = -distance; y <= distance; y++)
+                for (int y = distance; y >= -distance; y--) // Changed to go from top to bottom
                 {
                     for (int x = -distance; x <= distance; x++)
                     {
