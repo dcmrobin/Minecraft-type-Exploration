@@ -276,7 +276,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  chunksPerFrame: 5
+  chunksPerFrame: 2
   useVerticalChunks: 1
   worldSize: 5
   chunkSize: 16
