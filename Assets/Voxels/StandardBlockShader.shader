@@ -41,7 +41,7 @@
 				float maxGlobalLightLevel;
 
 				// Block type is stored in color.r
-				// 0 = Air, 1 = Stone, 2 = Dirt, 3 = Grass, 4 = Deepslate, 5 = Sand
+				// 0 = Air, 1 = Dirt, 2 = Grass, 3 = Stone, 4 = Sand, 5 = Water, 6 = Deepslate
 
 				float2 GetTileOffset(float blockType, float faceIndex) {
 					// Stone
