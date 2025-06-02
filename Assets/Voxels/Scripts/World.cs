@@ -152,6 +152,27 @@ public class World : MonoBehaviour
         );
     }
 
+    private bool IsChunkPotentiallyVisible(Vector3Int chunkPos)
+    {
+        if (mainCamera == null) return true;
+
+        // Calculate chunk bounds in world space
+        Bounds chunkBounds = new Bounds(
+            new Vector3(
+                chunkPos.x * chunkSize + chunkSize / 2f,
+                chunkPos.y * chunkHeight + chunkHeight / 2f,
+                chunkPos.z * chunkSize + chunkSize / 2f
+            ),
+            new Vector3(chunkSize, chunkHeight, chunkSize)
+        );
+
+        // Get camera frustum planes
+        Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(mainCamera);
+
+        // Check if chunk bounds intersect with any frustum plane
+        return GeometryUtility.TestPlanesAABB(frustumPlanes, chunkBounds);
+    }
+
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
         prioritizedChunkQueue.Clear();
@@ -172,37 +193,47 @@ public class World : MonoBehaviour
                             if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z)) == distance)
                             {
                                 Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
-                                if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
-                                {
-                                    // Calculate chunk center in world space
-                                    Vector3 chunkCenter = new Vector3(
-                                        chunkPos.x * chunkSize + chunkSize / 2f,
-                                        chunkPos.y * chunkHeight + chunkHeight / 2f,
-                                        chunkPos.z * chunkSize + chunkSize / 2f
-                                    );
+                                
+                                // Skip if chunk already exists or is in queue
+                                if (chunks.ContainsKey(chunkPos) || chunkLoadQueue.Contains(chunkPos))
+                                    continue;
 
-                                    // Calculate distance to player
-                                    float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
+                                // Skip if chunk is not potentially visible
+                                if (!IsChunkPotentiallyVisible(chunkPos))
+                                    continue;
 
-                                    // Calculate dot product with camera forward
-                                    Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
-                                    float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+                                // Calculate chunk center in world space
+                                Vector3 chunkCenter = new Vector3(
+                                    chunkPos.x * chunkSize + chunkSize / 2f,
+                                    chunkPos.y * chunkHeight + chunkHeight / 2f,
+                                    chunkPos.z * chunkSize + chunkSize / 2f
+                                );
 
-                                    // Calculate priority
-                                    float priority = 0;
-                                    
-                                    // Higher priority for chunks in front of the player
-                                    priority += dotProduct * 2f;
-                                    
-                                    // Higher priority for closer chunks
-                                    priority += 1f / (distToPlayer + 1f);
-                                    
-                                    // Higher priority for chunks at player's level
-                                    float heightDiff = Mathf.Abs(chunkCenter.y - playerPos.y);
-                                    priority += 1f / (heightDiff + 1f);
+                                // Calculate distance to player
+                                float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
 
-                                    prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
-                                }
+                                // Calculate dot product with camera forward
+                                Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
+                                float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+
+                                // Skip chunks that are too far behind the player
+                                if (dotProduct < -0.5f) // Chunks more than 120 degrees behind the player
+                                    continue;
+
+                                // Calculate priority
+                                float priority = 0;
+                                
+                                // Higher priority for chunks in front of the player
+                                priority += dotProduct * 2f;
+                                
+                                // Higher priority for closer chunks
+                                priority += 1f / (distToPlayer + 1f);
+                                
+                                // Higher priority for chunks at player's level
+                                float heightDiff = Mathf.Abs(chunkCenter.y - playerPos.y);
+                                priority += 1f / (heightDiff + 1f);
+
+                                prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
                             }
                         }
                     }
@@ -221,33 +252,43 @@ public class World : MonoBehaviour
                         if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(z)) == distance)
                         {
                             Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
-                            if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
-                            {
-                                // Calculate chunk center in world space
-                                Vector3 chunkCenter = new Vector3(
-                                    chunkPos.x * chunkSize + chunkSize / 2f,
-                                    chunkPos.y * chunkHeight + chunkHeight / 2f,
-                                    chunkPos.z * chunkSize + chunkSize / 2f
-                                );
+                            
+                            // Skip if chunk already exists or is in queue
+                            if (chunks.ContainsKey(chunkPos) || chunkLoadQueue.Contains(chunkPos))
+                                continue;
 
-                                // Calculate distance to player
-                                float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
+                            // Skip if chunk is not potentially visible
+                            if (!IsChunkPotentiallyVisible(chunkPos))
+                                continue;
 
-                                // Calculate dot product with camera forward
-                                Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
-                                float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+                            // Calculate chunk center in world space
+                            Vector3 chunkCenter = new Vector3(
+                                chunkPos.x * chunkSize + chunkSize / 2f,
+                                chunkPos.y * chunkHeight + chunkHeight / 2f,
+                                chunkPos.z * chunkSize + chunkSize / 2f
+                            );
 
-                                // Calculate priority
-                                float priority = 0;
-                                
-                                // Higher priority for chunks in front of the player
-                                priority += dotProduct * 2f;
-                                
-                                // Higher priority for closer chunks
-                                priority += 1f / (distToPlayer + 1f);
+                            // Calculate distance to player
+                            float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
 
-                                prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
-                            }
+                            // Calculate dot product with camera forward
+                            Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
+                            float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+
+                            // Skip chunks that are too far behind the player
+                            if (dotProduct < -0.5f) // Chunks more than 120 degrees behind the player
+                                continue;
+
+                            // Calculate priority
+                            float priority = 0;
+                            
+                            // Higher priority for chunks in front of the player
+                            priority += dotProduct * 2f;
+                            
+                            // Higher priority for closer chunks
+                            priority += 1f / (distToPlayer + 1f);
+
+                            prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
                         }
                     }
                 }

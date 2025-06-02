@@ -185,8 +185,8 @@ public class Chunk : MonoBehaviour
         }
 
         // Front and back faces
-        for (int z = 0; z < chunkSize; z++)
-        {
+                for (int z = 0; z < chunkSize; z++)
+                {
             GreedyMeshSlice(z, false, true);  // Front face
             GreedyMeshSlice(z, false, false); // Back face
         }
