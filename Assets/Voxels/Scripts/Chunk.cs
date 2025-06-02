@@ -38,6 +38,8 @@ public class Chunk : MonoBehaviour
             curveSamples[i] = continentalnessCurve.Evaluate(t);
         }
 
+        NativeArray<Voxel> voxelArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+
         GenerateJob generateJob = new()
         {
             heightCurveSamples = curveSamples,
@@ -47,28 +49,31 @@ public class Chunk : MonoBehaviour
             frequency = noiseFrequency,
             amplitude = noiseAmplitude,
             chunkWorldPosition = chunkWorldPosition,
-            voxels = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob),
+            voxels = voxelArray,
             randInt = Random.Range(-2, 2),
             worldSeed = World.Instance.noiseSeed
         };
 
-        JobHandle handle = generateJob.Schedule();
+        // Schedule the job with a batch size of 64 for better performance
+        JobHandle handle = generateJob.Schedule(voxelArray.Length, 64);
         handle.Complete();
 
-        for (int i = 0; i < generateJob.voxels.Length; i++)
+        // Process the results
+        for (int i = 0; i < voxelArray.Length; i++)
         {
             int x = i % chunkSize;
             int y = (i / chunkSize) % chunkHeight;
             int z = i / (chunkSize * chunkHeight);
-            Voxel voxel = generateJob.voxels[i];
+            Voxel voxel = voxelArray[i];
             if (voxel.type != Voxel.VoxelType.Air)
             {
                 voxels.SetVoxel(x, y, z, voxel);
             }
         }
 
-        generateJob.voxels.Dispose();
-        generateJob.heightCurveSamples.Dispose();
+        // Clean up
+        voxelArray.Dispose();
+        curveSamples.Dispose();
     }
 
     public void GenerateMesh()

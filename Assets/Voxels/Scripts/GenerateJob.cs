@@ -3,7 +3,7 @@ using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
 
-public struct GenerateJob : IJob
+public struct GenerateJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightCurveSamples;
     [ReadOnly] public bool useVerticalChunks;
@@ -17,26 +17,23 @@ public struct GenerateJob : IJob
 
     [WriteOnly] public NativeArray<Voxel> voxels;
 
-    public void Execute()
+    public void Execute(int index)
     {
-        for (int index = 0; index < voxels.Length; index++)
-        {
-            int x = index % chunkSize;
-            int y = (index % (chunkSize * chunkHeight)) / chunkSize;
-            int z = index / (chunkSize * chunkHeight);
+        int x = index % chunkSize;
+        int y = (index % (chunkSize * chunkHeight)) / chunkSize;
+        int z = index / (chunkSize * chunkHeight);
 
-            Vector3 voxelChunkPos = new Vector3(x, y, z);
-            float perlinHeight = Mathf.PerlinNoise(
-                ((chunkWorldPosition.x + x) + worldSeed) / frequency,
-                ((chunkWorldPosition.z + z) + worldSeed) / frequency
-            );
+        Vector3 voxelChunkPos = new Vector3(x, y, z);
+        float perlinHeight = Mathf.PerlinNoise(
+            ((chunkWorldPosition.x + x) + worldSeed) / frequency,
+            ((chunkWorldPosition.z + z) + worldSeed) / frequency
+        );
 
-            int sampleIndex = Mathf.Clamp(Mathf.RoundToInt(perlinHeight * (heightCurveSamples.Length - 1)), 0, heightCurveSamples.Length - 1);
-            float calculatedHeight = heightCurveSamples[sampleIndex] * amplitude;
+        int sampleIndex = Mathf.Clamp(Mathf.RoundToInt(perlinHeight * (heightCurveSamples.Length - 1)), 0, heightCurveSamples.Length - 1);
+        float calculatedHeight = heightCurveSamples[sampleIndex] * amplitude;
 
-            Voxel.VoxelType type = DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
-            voxels[index] = new Voxel(type, type != Voxel.VoxelType.Air);
-        }
+        Voxel.VoxelType type = DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
+        voxels[index] = new Voxel(type, type != Voxel.VoxelType.Air);
     }
 
     public static Voxel.VoxelType DetermineVoxelType(Vector3 voxelChunkPos, float calculatedHeight, Vector3 chunkPos, bool useVerticalChunks, int randInt, int seed)
