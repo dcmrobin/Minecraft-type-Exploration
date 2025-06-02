@@ -135,6 +135,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 4202964742058437028, guid: 07a55690a5d59ab489db27e92d2347f2, type: 3}
+      propertyPath: world
+      value: 
+      objectReference: {fileID: 1773224464}
     - target: {fileID: 5194943777474327384, guid: 07a55690a5d59ab489db27e92d2347f2, type: 3}
       propertyPath: m_HDR
       value: 0

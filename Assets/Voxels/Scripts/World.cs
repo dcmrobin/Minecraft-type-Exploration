@@ -237,4 +237,75 @@ public class World : MonoBehaviour
             worldPos.z - (chunkPos.z * chunkSize)
         );
     }
+
+    public void SetBlock(Vector3 worldPos, Voxel.VoxelType type)
+    {
+        Vector3Int chunkPos = GetChunkPosition(worldPos);
+        Vector3Int localPos = GetLocalPosition(new Vector3Int(
+            Mathf.FloorToInt(worldPos.x),
+            Mathf.FloorToInt(worldPos.y),
+            Mathf.FloorToInt(worldPos.z)
+        ));
+
+        if (chunks.TryGetValue(chunkPos, out Chunk chunk))
+        {
+            // Update the block
+            chunk.voxels.SetVoxel(localPos.x, localPos.y, localPos.z, new Voxel(type, type != Voxel.VoxelType.Air));
+            
+            // Regenerate the chunk's mesh
+            chunk.GenerateMesh();
+
+            // Update adjacent chunks if the block is on a chunk border
+            if (localPos.x == 0)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(-1, 0, 0);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+            else if (localPos.x == chunkSize - 1)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(1, 0, 0);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+
+            if (localPos.y == 0)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, -1, 0);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+            else if (localPos.y == chunkHeight - 1)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 1, 0);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+
+            if (localPos.z == 0)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, -1);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+            else if (localPos.z == chunkSize - 1)
+            {
+                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, 1);
+                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                {
+                    adjChunk.GenerateMesh();
+                }
+            }
+        }
+    }
 }

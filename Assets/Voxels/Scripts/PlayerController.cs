@@ -16,10 +16,23 @@ public class PlayerController : MonoBehaviour
     private bool groundedPlayer;
     private Transform playerTransform;
 
+    // Block interaction settings
+    public float interactionDistance = 5f;
+    public LayerMask blockLayer;
+    public World world; // Reference to the World component
+
     void Start()
     {
         //SetPlayerCenter();
         playerTransform = transform;
+        if (world == null)
+        {
+            world = FindObjectOfType<World>();
+            if (world == null)
+            {
+                Debug.LogError("World component not found! Please assign it in the inspector.");
+            }
+        }
     }
 
     public Vector3 GetPlayerPosition()
@@ -40,6 +53,44 @@ public class PlayerController : MonoBehaviour
         } else {
             PlayerMove();
         }
+
+        // Handle block interaction
+        HandleBlockInteraction();
+    }
+
+    void HandleBlockInteraction()
+    {
+        Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, interactionDistance, blockLayer))
+        {
+            // Left click to break block
+            if (Input.GetMouseButtonDown(0))
+            {
+                Vector3 blockPos = hit.point - hit.normal * 0.5f;
+                world.SetBlock(blockPos, Voxel.VoxelType.Air);
+            }
+            // Right click to place block
+            else if (Input.GetMouseButtonDown(1))
+            {
+                Vector3 blockPos = hit.point + hit.normal * 0.5f;
+                // Don't place block if it would intersect with the player
+                if (!WouldBlockIntersectPlayer(blockPos))
+                {
+                    world.SetBlock(blockPos, Voxel.VoxelType.Stone); // Default to stone, you can change this
+                }
+            }
+        }
+    }
+
+    bool WouldBlockIntersectPlayer(Vector3 blockPos)
+    {
+        // Check if the block position is too close to the player
+        Vector3 playerPos = transform.position;
+        float minDistance = 1.5f; // Minimum distance to prevent block placement inside player
+
+        return Vector3.Distance(blockPos, playerPos) < minDistance;
     }
 
     void Fly()
