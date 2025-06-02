@@ -645,10 +645,29 @@ public class Chunk : MonoBehaviour
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
     {
+        // Check if the position is in a neighboring chunk
         if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
         {
-            return true;
+            // Get the world position of the neighboring voxel
+            Vector3 worldPos = transform.position + new Vector3(x, y, z);
+            Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
+            Vector3Int localPos = new Vector3Int(
+                Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
+                Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
+                Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
+            );
+
+            // Get the neighboring chunk
+            Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
+            if (neighborChunk != null)
+            {
+                // Check if the neighboring voxel is air
+                return neighborChunk.voxels.IsVoxelAir(localPos.x, localPos.y, localPos.z);
+            }
+            return true; // If no neighboring chunk exists, consider it hidden
         }
+
+        // For positions within this chunk, check if the voxel is air
         return voxels.IsVoxelAir(x, y, z);
     }
 
