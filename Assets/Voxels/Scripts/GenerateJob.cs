@@ -1,25 +1,24 @@
-using UnityEngine;
+using Unity.Mathematics;
 using Unity.Jobs;
-using Unity.Burst;
 using Unity.Collections;
+using UnityEngine;
 
-[BurstCompile]
 public struct GenerateJob : IJob
 {
-    public bool useVerticalChunks;
-    public int chunkHeight;
-    public int chunkSize;
-    public float frequency;
-    public float amplitude;
-    public Vector3 chunkWorldPosition;
-    public NativeArray<Voxel> voxels;
-    public NativeArray<float> heightCurveSamples;
-    public int randInt;
-    public int worldSeed;
+    [ReadOnly] public NativeArray<float> heightCurveSamples;
+    [ReadOnly] public bool useVerticalChunks;
+    [ReadOnly] public int chunkHeight;
+    [ReadOnly] public int chunkSize;
+    [ReadOnly] public float frequency;
+    [ReadOnly] public float amplitude;
+    [ReadOnly] public Vector3 chunkWorldPosition;
+    [ReadOnly] public int randInt;
+    [ReadOnly] public int worldSeed;
+
+    [WriteOnly] public NativeArray<Voxel> voxels;
 
     public void Execute()
     {
-        // Voxel position calculation
         for (int index = 0; index < voxels.Length; index++)
         {
             int x = index % chunkSize;
@@ -49,13 +48,13 @@ public struct GenerateJob : IJob
         float wormCaveSizeMultiplier = 1.15f;
         float wormBias = -0.43f;
         float wormCaveNoise = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias;// instead of between 0 and 1
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.x + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier, (voxelWorldPos.y + seed) * wormCaveNoiseFrequency / wormCaveSizeMultiplier) * 2f - 1f) - wormBias;
         float wormCaveNoise2 = Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.x + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.z + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.x + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias // *2-1 to make it between -1 and 1
-                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias;// instead of between 0 and 1
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.x + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias
+                        + Mathf.Abs(Mathf.PerlinNoise((voxelWorldPos.z + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2), (voxelWorldPos.y + (seed*2)) * wormCaveNoiseFrequency / (wormCaveSizeMultiplier / 2)) * 2f - 1f) - wormBias;
         float remappedWormCaveNoise = wormCaveNoise / 3;
-        float remappedWormCaveNoise2 =  + wormCaveNoise2 / 3;
+        float remappedWormCaveNoise2 = wormCaveNoise2 / 3;
 
         float biomeNoise = Mathf.PerlinNoise(voxelWorldPos.x + seed, voxelWorldPos.z + seed);
 
@@ -65,7 +64,7 @@ public struct GenerateJob : IJob
         // Normal terrain height-based voxel type determination
         Voxel.VoxelType type = voxelWorldPos.y <= calculatedHeight ? Voxel.VoxelType.Stone : Voxel.VoxelType.Air;
 
-        if (biomeNoise < 0.5)// WHY DOES THE BIOME NOISE ALWAYS EQUAL A CERTAIN NUMBER NO MATTER WHERE THE VOXEL ISSSS
+        if (biomeNoise < 0.5)
         {
             if (type != Voxel.VoxelType.Air && voxelWorldPos.y < calculatedHeight && voxelWorldPos.y >= calculatedHeight - 3)
                 type = Voxel.VoxelType.Dirt;

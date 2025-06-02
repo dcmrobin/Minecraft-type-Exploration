@@ -8,7 +8,7 @@ using VoxelEngine;
 
 public class Chunk : MonoBehaviour
 {
-    public Voxel[,,] voxels;
+    public OptimizedVoxelStorage voxels;
     public int chunkSize = 16;
     public int chunkHeight = 16;
     private AnimationCurve continentalnessCurve;
@@ -30,10 +30,7 @@ public class Chunk : MonoBehaviour
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
     {
-        //Stopwatch sw = new();
-        //sw.Start();
-
-        int sampleCount = 100; // Adjust for desired precision
+        int sampleCount = 100;
         NativeArray<float> curveSamples = new(sampleCount, Allocator.TempJob);
         for (int i = 0; i < sampleCount; i++)
         {
@@ -49,10 +46,8 @@ public class Chunk : MonoBehaviour
             chunkSize = chunkSize,
             frequency = noiseFrequency,
             amplitude = noiseAmplitude,
-            //lightFalloff = lightFalloff,
             chunkWorldPosition = chunkWorldPosition,
-            voxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob),
-            //litVoxels = new NativeQueue<Vector3Int>(Allocator.TempJob)
+            voxels = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob),
             randInt = Random.Range(-2, 2),
             worldSeed = World.Instance.noiseSeed
         };
@@ -65,22 +60,15 @@ public class Chunk : MonoBehaviour
             int x = i % chunkSize;
             int y = (i / chunkSize) % chunkHeight;
             int z = i / (chunkSize * chunkHeight);
-            voxels[x, y, z] = generateJob.voxels[i];
-
-            //if (Random.value > 0.99 && voxels[x, y - 1 < 0 ? y : y - 1, z].type == Voxel.VoxelType.Grass)
-            //{
-            //    Structure testStructure = new(voxels, Vector3Int.FloorToInt(voxels[x, y, z].position), Structure.StructureList.Test);
-            //    testStructure.GenerateStructure();
-            //}
+            Voxel voxel = generateJob.voxels[i];
+            if (voxel.type != Voxel.VoxelType.Air)
+            {
+                voxels.SetVoxel(x, y, z, voxel);
+            }
         }
 
-        //curveSamples.Dispose();
         generateJob.voxels.Dispose();
         generateJob.heightCurveSamples.Dispose();
-        //generateJob.litVoxels.Dispose();
-
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Generating voxel data for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
     public void GenerateMesh()
@@ -102,20 +90,20 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                     {
                         // Check top face
                         if (IsVoxelHiddenInChunk(x, y + 1, z))
                         {
                             topMask[x, z] = true;
-                            topTypes[x, z] = voxels[x, y, z].type;
+                            topTypes[x, z] = voxels.GetVoxel(x, y, z).type;
                         }
 
                         // Check bottom face
                         if (IsVoxelHiddenInChunk(x, y - 1, z))
                         {
                             bottomMask[x, z] = true;
-                            bottomTypes[x, z] = voxels[x, y, z].type;
+                            bottomTypes[x, z] = voxels.GetVoxel(x, y, z).type;
                         }
                     }
                 }
@@ -230,20 +218,20 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                     {
                         // Check left face
                         if (IsVoxelHiddenInChunk(x - 1, y, z))
                         {
                             leftMask[y, z] = true;
-                            leftTypes[y, z] = voxels[x, y, z].type;
+                            leftTypes[y, z] = voxels.GetVoxel(x, y, z).type;
                         }
 
                         // Check right face
                         if (IsVoxelHiddenInChunk(x + 1, y, z))
                         {
                             rightMask[y, z] = true;
-                            rightTypes[y, z] = voxels[x, y, z].type;
+                            rightTypes[y, z] = voxels.GetVoxel(x, y, z).type;
                         }
                     }
                 }
@@ -357,20 +345,20 @@ public class Chunk : MonoBehaviour
             {
                 for (int x = 0; x < chunkSize; x++)
                 {
-                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                     {
                         // Check front face
                         if (IsVoxelHiddenInChunk(x, y, z + 1))
                         {
                             frontMask[y, x] = true;
-                            frontTypes[y, x] = voxels[x, y, z].type;
+                            frontTypes[y, x] = voxels.GetVoxel(x, y, z).type;
                         }
 
                         // Check back face
                         if (IsVoxelHiddenInChunk(x, y, z - 1))
                         {
                             backMask[y, x] = true;
-                            backTypes[y, x] = voxels[x, y, z].type;
+                            backTypes[y, x] = voxels.GetVoxel(x, y, z).type;
                         }
                     }
                 }
@@ -497,7 +485,7 @@ public class Chunk : MonoBehaviour
         {
             for (int z = 0; z < chunkSize; z++)
             {
-                if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                 {
                     bool shouldRender = isTop ? 
                         IsVoxelHiddenInChunk(x, y + 1, z) : 
@@ -506,7 +494,7 @@ public class Chunk : MonoBehaviour
                     if (shouldRender)
                     {
                         mask[x, z] = true;
-                        types[x, z] = voxels[x, y, z].type;
+                        types[x, z] = voxels.GetVoxel(x, y, z).type;
                     }
                 }
             }
@@ -581,7 +569,7 @@ public class Chunk : MonoBehaviour
                 int y = isX ? i : slice;
                 int z = isX ? j : i;
 
-                if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                 {
                     bool shouldRender = isX ?
                         (isPositive ? IsVoxelHiddenInChunk(x + 1, y, z) : IsVoxelHiddenInChunk(x - 1, y, z)) :
@@ -590,7 +578,7 @@ public class Chunk : MonoBehaviour
                     if (shouldRender)
                     {
                         mask[i, j] = true;
-                        types[i, j] = voxels[x, y, z].type;
+                        types[i, j] = voxels.GetVoxel(x, y, z).type;
                     }
                 }
             }
@@ -722,41 +710,30 @@ public class Chunk : MonoBehaviour
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
     {
-        //Stopwatch sw = new();
-        //sw.Start();
-        this.chunkSize = size;
-        this.chunkHeight = height;
+        chunkSize = size;
+        chunkHeight = height;
         this.continentalnessCurve = continentalnessCurve;
-        this.noiseFrequency = World.Instance.noiseFrequency;
-        this.noiseAmplitude = World.Instance.noiseAmplitude;
-        //this.lightFalloff = World.lightFalloff;
-        voxels = new Voxel[size, height, size];
+        noiseFrequency = World.Instance.noiseFrequency;
+        noiseAmplitude = World.Instance.noiseAmplitude;
+
+        voxels = new OptimizedVoxelStorage(chunkSize, chunkHeight);
+        meshFilter = gameObject.AddComponent<MeshFilter>();
+        meshRenderer = gameObject.AddComponent<MeshRenderer>();
+        meshCollider = gameObject.AddComponent<MeshCollider>();
+        meshRenderer.material = World.Instance.VoxelMaterial;
 
         GenerateVoxelData(transform.position);
-        //CalculateLight();
-
-        meshFilter = GetComponent<MeshFilter>();
-        if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
-
-        meshRenderer = GetComponent<MeshRenderer>();
-        if (meshRenderer == null) { meshRenderer = gameObject.AddComponent<MeshRenderer>(); }
-
-        meshCollider = GetComponent<MeshCollider>();
-        if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
-
-        GenerateMesh(); // Call after ensuring all necessary components and data are set
-        //sw.Stop();
-        //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
+        GenerateMesh();
     }
 
     private void ProcessVoxel(int x, int y, int z)
     {
-        if (voxels == null || x < 0 || x >= voxels.GetLength(0) || y < 0 || y >= voxels.GetLength(1) || z < 0 || z >= voxels.GetLength(2))
+        if (voxels == null || x < 0 || x >= voxels.Length || y < 0 || y >= voxels.Height || z < 0 || z >= voxels.Length)
         {
             return;
         }
 
-        Voxel voxel = voxels[x, y, z];
+        Voxel voxel = voxels.GetVoxel(x, y, z);
         if (voxel.isActive)
         {
             // We'll handle face generation in GenerateMesh instead
@@ -875,33 +852,20 @@ public class Chunk : MonoBehaviour
 
     private bool IsVoxelHiddenInChunk(int x, int y, int z)
     {
-        // If the coordinates are within the chunk bounds, check normally
-        if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
         {
-            return voxels[x, y, z].type == Voxel.VoxelType.Air;
+            return true;
         }
-
-        // If we're outside the chunk bounds, we need to check neighboring chunks
-        Vector3Int worldPos = new Vector3Int(
-            Mathf.FloorToInt(pos.x) + x,
-            Mathf.FloorToInt(pos.y) + y,
-            Mathf.FloorToInt(pos.z) + z
-        );
-
-        // Get the voxel from the world
-        Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
-        return neighborVoxel.type == Voxel.VoxelType.Air;
+        return voxels.IsVoxelAir(x, y, z);
     }
 
     private Voxel GetVoxelSafe(int x, int y, int z)
     {
         if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
         {
-            //Debug.Log("Voxel safe out of bounds");
-            return new Voxel(); // Default or inactive voxel
+            return new Voxel(Voxel.VoxelType.Air);
         }
-        //Debug.Log("Voxel safe is in bounds");
-        return voxels[x, y, z];
+        return voxels.GetVoxel(x, y, z);
     }
 
     public Vector3Int NeighborXYZ(Vector3Int pos)
@@ -926,7 +890,7 @@ public class Chunk : MonoBehaviour
 
     public void ResetChunk() {
         // Clear voxel data
-        voxels = new Voxel[chunkSize, chunkHeight, chunkSize];
+        voxels.Clear();
 
         // Clear mesh data
         vertices.Clear();
@@ -970,7 +934,7 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = startZ; z < endZ; z++)
                 {
-                    if (voxels[x, y, z].type != Voxel.VoxelType.Air)
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
                     {
                         ProcessVoxel(x, y, z);
                     }
