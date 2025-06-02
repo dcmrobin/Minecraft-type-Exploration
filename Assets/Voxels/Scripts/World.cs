@@ -41,6 +41,22 @@ public class World : MonoBehaviour
     private float cullingUpdateInterval = 0.1f; // Update culling every 0.1 seconds
     private float lastCullingUpdate;
 
+    private class ChunkLoadRequest
+    {
+        public Vector3Int position;
+        public float priority;
+        public float distance;
+
+        public ChunkLoadRequest(Vector3Int pos, float pri, float dist)
+        {
+            position = pos;
+            priority = pri;
+            distance = dist;
+        }
+    }
+
+    private List<ChunkLoadRequest> prioritizedChunkQueue = new List<ChunkLoadRequest>();
+
     void Awake()
     {
         if (Instance == null)
@@ -138,26 +154,54 @@ public class World : MonoBehaviour
 
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
+        prioritizedChunkQueue.Clear();
+        Vector3 playerPos = player.position;
+        Vector3 cameraForward = mainCamera.transform.forward;
+
         if (useVerticalChunks)
         {
-            // Generate chunks in a spiral pattern from the center, but vertically from top to bottom
             int maxDistance = renderDistance;
             for (int distance = 0; distance <= maxDistance; distance++)
             {
-                // Generate chunks at this distance in a spiral
-                for (int y = distance; y >= -distance; y--) // Changed to go from top to bottom
+                for (int y = distance; y >= -distance; y--)
                 {
                     for (int x = -distance; x <= distance; x++)
                     {
                         for (int z = -distance; z <= distance; z++)
                         {
-                            // Only process chunks at the current distance
                             if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z)) == distance)
                             {
                                 Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
                                 if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
                                 {
-                                    chunkLoadQueue.Enqueue(chunkPos);
+                                    // Calculate chunk center in world space
+                                    Vector3 chunkCenter = new Vector3(
+                                        chunkPos.x * chunkSize + chunkSize / 2f,
+                                        chunkPos.y * chunkHeight + chunkHeight / 2f,
+                                        chunkPos.z * chunkSize + chunkSize / 2f
+                                    );
+
+                                    // Calculate distance to player
+                                    float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
+
+                                    // Calculate dot product with camera forward
+                                    Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
+                                    float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+
+                                    // Calculate priority
+                                    float priority = 0;
+                                    
+                                    // Higher priority for chunks in front of the player
+                                    priority += dotProduct * 2f;
+                                    
+                                    // Higher priority for closer chunks
+                                    priority += 1f / (distToPlayer + 1f);
+                                    
+                                    // Higher priority for chunks at player's level
+                                    float heightDiff = Mathf.Abs(chunkCenter.y - playerPos.y);
+                                    priority += 1f / (heightDiff + 1f);
+
+                                    prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
                                 }
                             }
                         }
@@ -167,7 +211,6 @@ public class World : MonoBehaviour
         }
         else
         {
-            // For non-vertical chunks, use a 2D spiral
             int maxDistance = renderDistance;
             for (int distance = 0; distance <= maxDistance; distance++)
             {
@@ -175,18 +218,49 @@ public class World : MonoBehaviour
                 {
                     for (int z = -distance; z <= distance; z++)
                     {
-                        // Only process chunks at the current distance
                         if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(z)) == distance)
                         {
                             Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
                             if (!chunks.ContainsKey(chunkPos) && !chunkLoadQueue.Contains(chunkPos))
                             {
-                                chunkLoadQueue.Enqueue(chunkPos);
+                                // Calculate chunk center in world space
+                                Vector3 chunkCenter = new Vector3(
+                                    chunkPos.x * chunkSize + chunkSize / 2f,
+                                    chunkPos.y * chunkHeight + chunkHeight / 2f,
+                                    chunkPos.z * chunkSize + chunkSize / 2f
+                                );
+
+                                // Calculate distance to player
+                                float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
+
+                                // Calculate dot product with camera forward
+                                Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
+                                float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
+
+                                // Calculate priority
+                                float priority = 0;
+                                
+                                // Higher priority for chunks in front of the player
+                                priority += dotProduct * 2f;
+                                
+                                // Higher priority for closer chunks
+                                priority += 1f / (distToPlayer + 1f);
+
+                                prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
                             }
                         }
                     }
                 }
             }
+        }
+
+        // Sort chunks by priority
+        prioritizedChunkQueue.Sort((a, b) => b.priority.CompareTo(a.priority));
+
+        // Add sorted chunks to the load queue
+        foreach (var request in prioritizedChunkQueue)
+        {
+            chunkLoadQueue.Enqueue(request.position);
         }
     }
 
