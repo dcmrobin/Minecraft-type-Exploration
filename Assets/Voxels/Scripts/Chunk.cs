@@ -828,7 +828,7 @@ public class Chunk : MonoBehaviour
             new Bounds(transform.position + chunkBounds.center, chunkBounds.size)
         );
 
-        // Update mesh renderer visibility
-        meshRenderer.enabled = isVisible;
+        // Deactivate/activate the entire chunk GameObject based on visibility
+        gameObject.SetActive(isVisible);
     }
 }
