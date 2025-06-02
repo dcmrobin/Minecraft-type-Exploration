@@ -88,7 +88,6 @@ public class Chunk : MonoBehaviour
         vertices.Clear();
         triangles.Clear();
         colors.Clear();
-        uvs.Clear();  // Clear UVs list
 
         // Process top and bottom faces with greedy meshing
         for (int y = 0; y < chunkHeight; y++)
@@ -478,8 +477,7 @@ public class Chunk : MonoBehaviour
             {
                 vertices = vertices.ToArray(),
                 triangles = triangles.ToArray(),
-                colors = colors.ToArray(),
-                uv = uvs.ToArray()  // Add UVs to the mesh
+                colors = colors.ToArray()
             };
 
             mesh.RecalculateNormals();
@@ -493,7 +491,6 @@ public class Chunk : MonoBehaviour
     {
         bool[,] mask = new bool[chunkSize, chunkSize];
         Voxel.VoxelType[,] types = new Voxel.VoxelType[chunkSize, chunkSize];
-        float[,] lightValues = new float[chunkSize, chunkSize];
 
         // Create the mask and type arrays
         for (int x = 0; x < chunkSize; x++)
@@ -510,7 +507,6 @@ public class Chunk : MonoBehaviour
                     {
                         mask[x, z] = true;
                         types[x, z] = voxels[x, y, z].type;
-                        lightValues[x, z] = voxels[x, y, z].light;
                     }
                 }
             }
@@ -524,15 +520,11 @@ public class Chunk : MonoBehaviour
                 if (!mask[x, z]) continue;
 
                 Voxel.VoxelType type = types[x, z];
-                float lightValue = lightValues[x, z];
                 int width = 1;
                 int height = 1;
 
                 // Find width
-                while (x + width < chunkSize && 
-                       mask[x + width, z] && 
-                       types[x + width, z] == type &&
-                       Mathf.Approximately(lightValues[x + width, z], lightValue))
+                while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
                 {
                     width++;
                 }
@@ -543,9 +535,7 @@ public class Chunk : MonoBehaviour
                 {
                     for (int i = 0; i < width; i++)
                     {
-                        if (!mask[x + i, z + height] || 
-                            types[x + i, z + height] != type ||
-                            !Mathf.Approximately(lightValues[x + i, z + height], lightValue))
+                        if (!mask[x + i, z + height] || types[x + i, z + height] != type)
                         {
                             canExpand = false;
                             break;
@@ -581,7 +571,6 @@ public class Chunk : MonoBehaviour
     {
         bool[,] mask = new bool[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
         Voxel.VoxelType[,] types = new Voxel.VoxelType[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
-        float[,] lightValues = new float[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
 
         // Create the mask and type arrays
         for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
@@ -602,7 +591,6 @@ public class Chunk : MonoBehaviour
                     {
                         mask[i, j] = true;
                         types[i, j] = voxels[x, y, z].type;
-                        lightValues[i, j] = voxels[x, y, z].light;
                     }
                 }
             }
@@ -616,15 +604,11 @@ public class Chunk : MonoBehaviour
                 if (!mask[i, j]) continue;
 
                 Voxel.VoxelType type = types[i, j];
-                float lightValue = lightValues[i, j];
                 int width = 1;
                 int height = 1;
 
                 // Find width
-                while (j + width < (isX ? chunkSize : chunkHeight) && 
-                       mask[i, j + width] && 
-                       types[i, j + width] == type &&
-                       Mathf.Approximately(lightValues[i, j + width], lightValue))
+                while (j + width < (isX ? chunkSize : chunkHeight) && mask[i, j + width] && types[i, j + width] == type)
                 {
                     width++;
                 }
@@ -635,9 +619,7 @@ public class Chunk : MonoBehaviour
                 {
                     for (int k = 0; k < width; k++)
                     {
-                        if (!mask[i + height, j + k] || 
-                            types[i + height, j + k] != type ||
-                            !Mathf.Approximately(lightValues[i + height, j + k], lightValue))
+                        if (!mask[i + height, j + k] || types[i + height, j + k] != type)
                         {
                             canExpand = false;
                             break;
@@ -723,25 +705,11 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Add UVs for the quad
-        Vector2[] faceUVs = GetFaceUVs(type, faceIndex);
-        uvs.AddRange(faceUVs);
-
-        // Get the voxel at this position
-        int x = Mathf.FloorToInt(position.x);
-        int y = Mathf.FloorToInt(position.y);
-        int z = Mathf.FloorToInt(position.z);
-        Voxel voxel = voxels[x, y, z];
-
-        // Store block type in color
+        // Store block type in color.r (using the actual enum value)
+        float blockType = (float)type;
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(
-                0f,           // Block type (unused for now)
-                1f,          // Light value (full brightness)
-                0f,          // Unused
-                voxel.transparency
-            ));
+            colors.Add(new Color(blockType, 0, 0, 1));
         }
 
         triangles.Add(vertCount);
@@ -754,14 +722,18 @@ public class Chunk : MonoBehaviour
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
     {
+        //Stopwatch sw = new();
+        //sw.Start();
         this.chunkSize = size;
         this.chunkHeight = height;
         this.continentalnessCurve = continentalnessCurve;
         this.noiseFrequency = World.Instance.noiseFrequency;
         this.noiseAmplitude = World.Instance.noiseAmplitude;
+        //this.lightFalloff = World.lightFalloff;
         voxels = new Voxel[size, height, size];
 
         GenerateVoxelData(transform.position);
+        //CalculateLight();
 
         meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) { meshFilter = gameObject.AddComponent<MeshFilter>(); }
@@ -772,7 +744,9 @@ public class Chunk : MonoBehaviour
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null) { meshCollider = gameObject.AddComponent<MeshCollider>(); }
 
-        GenerateMesh();
+        GenerateMesh(); // Call after ensuring all necessary components and data are set
+        //sw.Stop();
+        //UnityEngine.Debug.Log($"Initialization for {name} took {sw.ElapsedMilliseconds} milliseconds");
     }
 
     private void ProcessVoxel(int x, int y, int z)
@@ -857,7 +831,6 @@ public class Chunk : MonoBehaviour
 
         Vector2 tileOffset = GetTileOffset(type, faceIndex);
 
-        // Map to the correct tile in the texture atlas
         uvs[0] = new Vector2(tileOffset.x, tileOffset.y);
         uvs[1] = new Vector2(tileOffset.x + tileSize, tileOffset.y);
         uvs[2] = new Vector2(tileOffset.x + tileSize, tileOffset.y + tileSize);
@@ -893,8 +866,7 @@ public class Chunk : MonoBehaviour
             case Voxel.VoxelType.Sand:
                 return new Vector2(0.75f, 0.75f);
 
-            case Voxel.VoxelType.Water:
-                return new Vector2(0.75f, 0.5f);
+            // Add more cases for other types...
 
             default:
                 return Vector2.zero;
@@ -1053,155 +1025,5 @@ public class Chunk : MonoBehaviour
             meshFilter.mesh = mesh;
             meshCollider.sharedMesh = mesh;
         }
-    }
-
-    private bool IsInsideChunk(Vector3Int pos)
-    {
-        return pos.x >= 0 && pos.x < chunkSize && 
-               pos.y >= 0 && pos.y < chunkHeight && 
-               pos.z >= 0 && pos.z < chunkSize;
-    }
-
-    private bool IsBlockAdjacentToAir(int x, int y, int z)
-            {
-        // Check all 6 neighbors
-        Vector3Int[] neighbors = new Vector3Int[]
-        {
-            new Vector3Int(x, y + 1, z), // Up
-            new Vector3Int(x, y - 1, z), // Down
-            new Vector3Int(x - 1, y, z), // Left
-            new Vector3Int(x + 1, y, z), // Right
-            new Vector3Int(x, y, z + 1), // Front
-            new Vector3Int(x, y, z - 1)  // Back
-        };
-
-        foreach (Vector3Int neighborPos in neighbors)
-    {
-            // If neighbor is outside chunk bounds, check in world
-            if (neighborPos.x < 0 || neighborPos.x >= chunkSize ||
-                neighborPos.y < 0 || neighborPos.y >= chunkHeight ||
-                neighborPos.z < 0 || neighborPos.z >= chunkSize)
-            {
-                Vector3Int worldPos = new Vector3Int(
-                    Mathf.FloorToInt(pos.x) + neighborPos.x,
-                    Mathf.FloorToInt(pos.y) + neighborPos.y,
-                    Mathf.FloorToInt(pos.z) + neighborPos.z
-                );
-                Voxel neighborVoxel = World.Instance.GetVoxelInWorld(worldPos);
-                if (neighborVoxel.type == Voxel.VoxelType.Air)
-                    return true;
-            }
-            else
-            {
-                // Check within chunk
-                if (voxels[neighborPos.x, neighborPos.y, neighborPos.z].type == Voxel.VoxelType.Air)
-                    return true;
-            }
-        }
-
-        return false;
-                        }
-
-    public void CalculateLight()
-    {
-        // Set all blocks to full brightness
-        for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-            {
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
-                    Voxel voxel = voxels[x, y, z];
-                    if (voxel.type == Voxel.VoxelType.Air)
-                        continue;
-
-                    // Set light to full brightness
-                    voxel.light = 1f;
-                    voxels[x, y, z] = voxel;
-                }
-            }
-        }
-    }
-
-    private Vector3Int GetNeighborPosition(Vector3Int pos, int direction)
-    {
-        switch (direction)
-        {
-            case 0: return new Vector3Int(pos.x, pos.y + 1, pos.z); // Up
-            case 1: return new Vector3Int(pos.x, pos.y - 1, pos.z); // Down
-            case 2: return new Vector3Int(pos.x - 1, pos.y, pos.z); // Left
-            case 3: return new Vector3Int(pos.x + 1, pos.y, pos.z); // Right
-            case 4: return new Vector3Int(pos.x, pos.y, pos.z + 1); // Front
-            case 5: return new Vector3Int(pos.x, pos.y, pos.z - 1); // Back
-            default: return pos;
-        }
-    }
-
-    private void UpdateMeshWithLighting()
-    {
-        // Update vertex colors with lighting information
-        for (int i = 0; i < vertices.Count; i++)
-        {
-            Vector3 vertexPos = vertices[i];
-            int x = Mathf.FloorToInt(vertexPos.x);
-            int y = Mathf.FloorToInt(vertexPos.y);
-            int z = Mathf.FloorToInt(vertexPos.z);
-
-            if (x >= 0 && x < chunkSize && y >= 0 && y < chunkHeight && z >= 0 && z < chunkSize)
-            {
-                Voxel voxel = voxels[x, y, z];
-                colors[i] = new Color(
-                    colors[i].r, // Block type
-                    voxel.light,
-                    1f,         // Unused
-                    voxel.transparency
-                );
-            }
-        }
-
-        // Update the mesh
-        if (vertices.Count > 0)
-        {
-            Mesh mesh = new()
-            {
-                vertices = vertices.ToArray(),
-                triangles = triangles.ToArray(),
-                colors = colors.ToArray()
-            };
-
-            mesh.RecalculateNormals();
-            meshFilter.mesh = mesh;
-            meshCollider.sharedMesh = mesh;
-        }
-    }
-
-    // Helper method to add a light source
-    public void AddLightSource(Vector3Int position, float intensity)
-    {
-        if (!IsInsideChunk(position))
-            return;
-
-        Voxel voxel = voxels[position.x, position.y, position.z];
-        voxel.light = intensity;
-        voxels[position.x, position.y, position.z] = voxel;
-
-        // Recalculate lighting
-        CalculateLight();
-    }
-
-    public void UpdateVoxelLighting(Vector3Int localPos)
-    {
-        if (localPos.x < 0 || localPos.x >= chunkSize || 
-            localPos.y < 0 || localPos.y >= chunkHeight || 
-            localPos.z < 0 || localPos.z >= chunkSize)
-            return;
-
-        Voxel voxel = voxels[localPos.x, localPos.y, localPos.z];
-        if (voxel.type == Voxel.VoxelType.Air)
-            return;
-
-        // Set light to full brightness
-        voxel.light = 1f;
-        voxels[localPos.x, localPos.y, localPos.z] = voxel;
     }
 }
