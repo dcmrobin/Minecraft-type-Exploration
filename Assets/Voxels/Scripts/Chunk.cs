@@ -5,6 +5,7 @@ using Unity.Collections;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using VoxelEngine;
+using UnityEngine.Rendering;
 
 public class Chunk : MonoBehaviour
 {
@@ -735,6 +736,10 @@ public class Chunk : MonoBehaviour
         meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshCollider = gameObject.AddComponent<MeshCollider>();
         meshRenderer.material = World.Instance.VoxelMaterial;
+
+        // Set up occlusion culling after components are created
+        meshRenderer.allowOcclusionWhenDynamic = true;
+        meshRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
 
         // Initialize chunk bounds
         chunkBounds = new Bounds(

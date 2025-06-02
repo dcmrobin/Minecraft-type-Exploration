@@ -56,6 +56,15 @@ public class World : MonoBehaviour
     void Start()
     {
         mainCamera = Camera.main;
+        
+        // Set up occlusion culling
+        if (mainCamera != null)
+        {
+            mainCamera.useOcclusionCulling = true;
+            mainCamera.allowHDR = false; // Disable HDR for better performance
+            mainCamera.allowMSAA = false; // Disable MSAA for better performance
+        }
+
         string noEmptySpacesNoiseSeed = noiseSeedString.Replace(" ", string.Empty);
         if (noEmptySpacesNoiseSeed == string.Empty)
         {
