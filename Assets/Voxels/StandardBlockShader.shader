@@ -46,7 +46,7 @@
 				float2 GetTileOffset(float blockType, float faceIndex) {
 					// Stone (1)
 					if (blockType < 1) {
-						return float2(0.25, 0.5);
+						return float2(0.5, 0.5);
 					}
 					// Dirt (2)
 					else if (blockType < 2) {
@@ -62,7 +62,7 @@
 					}
 					// Deepslate (4)
 					else if (blockType < 4) {
-						return float2(0.5, 0.5);
+						return float2(0.25, 0.5);
 					}
 					// Sand (5)
 					else if (blockType < 5) {
