@@ -61,11 +61,11 @@
 						return float2(0.0, 0.5); // Side faces
 					}
 					// Deepslate
-					else if (blockType == 4) {
+					else if (blockType == 6) {
 						return float2(0.5, 0.75);
 					}
 					// Sand
-					else if (blockType == 5) {
+					else if (blockType == 4) {
 						return float2(0.75, 0.75);
 					}
 					// Default
