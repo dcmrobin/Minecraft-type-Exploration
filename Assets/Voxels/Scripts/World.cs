@@ -37,6 +37,10 @@ public class World : MonoBehaviour
     public string noiseSeedString;
     [HideInInspector] public int noiseSeed;
 
+    private Camera mainCamera;
+    private float cullingUpdateInterval = 0.1f; // Update culling every 0.1 seconds
+    private float lastCullingUpdate;
+
     void Awake()
     {
         if (Instance == null)
@@ -51,6 +55,7 @@ public class World : MonoBehaviour
 
     void Start()
     {
+        mainCamera = Camera.main;
         string noEmptySpacesNoiseSeed = noiseSeedString.Replace(" ", string.Empty);
         if (noEmptySpacesNoiseSeed == string.Empty)
         {
@@ -68,6 +73,13 @@ public class World : MonoBehaviour
 
     void Update()
     {
+        // Update frustum culling
+        if (Time.time - lastCullingUpdate >= cullingUpdateInterval)
+        {
+            UpdateChunkVisibility();
+            lastCullingUpdate = Time.time;
+        }
+
         chunkHeight = useVerticalChunks ? 16 : 260;
 
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
@@ -89,6 +101,19 @@ public class World : MonoBehaviour
             if (chunkLoadQueue.Count > 0)
             {
                 CreateChunk(chunkLoadQueue.Dequeue());
+            }
+        }
+    }
+
+    private void UpdateChunkVisibility()
+    {
+        if (mainCamera == null) return;
+
+        foreach (var chunk in chunks.Values)
+        {
+            if (chunk != null)
+            {
+                chunk.UpdateVisibility(mainCamera);
             }
         }
     }

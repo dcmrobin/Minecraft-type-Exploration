@@ -24,8 +24,17 @@ public class Chunk : MonoBehaviour
 
     public Vector3 pos;
 
+    private bool isVisible = true;
+    private Bounds chunkBounds;
+    private static readonly Vector3[] frustumCorners = new Vector3[8];
+
     private void Awake() {
         pos = transform.position;
+        // Initialize chunk bounds
+        chunkBounds = new Bounds(
+            new Vector3(chunkSize / 2f, chunkHeight / 2f, chunkSize / 2f),
+            new Vector3(chunkSize, chunkHeight, chunkSize)
+        );
     }
 
     private void GenerateVoxelData(Vector3 chunkWorldPosition)
@@ -727,6 +736,12 @@ public class Chunk : MonoBehaviour
         meshCollider = gameObject.AddComponent<MeshCollider>();
         meshRenderer.material = World.Instance.VoxelMaterial;
 
+        // Initialize chunk bounds
+        chunkBounds = new Bounds(
+            new Vector3(chunkSize / 2f, chunkHeight / 2f, chunkSize / 2f),
+            new Vector3(chunkSize, chunkHeight, chunkSize)
+        );
+
         GenerateVoxelData(transform.position);
         GenerateMesh();
     }
@@ -994,5 +1009,34 @@ public class Chunk : MonoBehaviour
             meshFilter.mesh = mesh;
             meshCollider.sharedMesh = mesh;
         }
+    }
+
+    public void UpdateVisibility(Camera mainCamera)
+    {
+        if (mainCamera == null) return;
+
+        // Get camera frustum corners
+        mainCamera.CalculateFrustumCorners(
+            new Rect(0, 0, 1, 1),
+            mainCamera.farClipPlane,
+            Camera.MonoOrStereoscopicEye.Mono,
+            frustumCorners
+        );
+
+        // Transform frustum corners to world space
+        for (int i = 0; i < 4; i++)
+        {
+            frustumCorners[i] = mainCamera.transform.TransformPoint(frustumCorners[i]);
+            frustumCorners[i + 4] = mainCamera.transform.TransformPoint(frustumCorners[i + 4]);
+        }
+
+        // Check if chunk bounds intersect with frustum
+        isVisible = GeometryUtility.TestPlanesAABB(
+            GeometryUtility.CalculateFrustumPlanes(mainCamera),
+            new Bounds(transform.position + chunkBounds.center, chunkBounds.size)
+        );
+
+        // Update mesh renderer visibility
+        meshRenderer.enabled = isVisible;
     }
 }
