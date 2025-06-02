@@ -62,9 +62,7 @@
 					}
 					// Deepslate (4)
 					else if (blockType < 4.5) {
-						if (faceIndex < 0.2) // Top or bottom face
-							return float2(0.5, 0.5);
-						return float2(0.5, 0.75); // Side faces
+						return float2(0.5, 0.5);
 					}
 					// Sand (5)
 					else if (blockType < 5.5) {
