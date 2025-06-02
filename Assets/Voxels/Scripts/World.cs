@@ -156,81 +156,22 @@ public class World : MonoBehaviour
         }
     }
 
-    private void CreateChunk(Vector3Int chunkPos)
+    public void CreateChunk(Vector3Int chunkPos)
     {
-        GameObject chunkObject = new GameObject($"Chunk {chunkPos}");
-        chunkObject.transform.position = new Vector3(chunkPos.x * chunkSize, useVerticalChunks ? chunkPos.y * chunkHeight : 0, chunkPos.z * chunkSize);
-        chunkObject.transform.parent = transform;
+        if (chunks.ContainsKey(chunkPos)) return;
 
-        Chunk newChunk = chunkObject.AddComponent<Chunk>();
-        newChunk.Initialize(chunkSize, chunkHeight, continentalnessCurve);
+        GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}_{chunkPos.z}");
+        chunkObj.transform.parent = transform;
+        chunkObj.transform.position = new Vector3(chunkPos.x * chunkSize, chunkPos.y * chunkHeight, chunkPos.z * chunkSize);
 
-        chunks[chunkPos] = newChunk;
-
-        // Update lighting of adjacent chunks' boundary voxels
-        UpdateAdjacentChunksLighting(chunkPos);
+        Chunk chunk = chunkObj.AddComponent<Chunk>();
+        chunk.Initialize(chunkSize, chunkHeight, continentalnessCurve);
+        chunks[chunkPos] = chunk;
     }
 
-    private void UpdateAdjacentChunksLighting(Vector3Int newChunkPos)
+    private void UpdateAdjacentChunksLighting(Vector3Int chunkPos)
     {
-        // Check all 6 adjacent chunks
-        Vector3Int[] adjacentDirections = new Vector3Int[]
-        {
-            new Vector3Int(0, 1, 0),  // Up
-            new Vector3Int(0, -1, 0), // Down
-            new Vector3Int(-1, 0, 0), // Left
-            new Vector3Int(1, 0, 0),  // Right
-            new Vector3Int(0, 0, 1),  // Front
-            new Vector3Int(0, 0, -1)  // Back
-        };
-
-        foreach (Vector3Int direction in adjacentDirections)
-        {
-            Vector3Int adjacentPos = newChunkPos + direction;
-            if (chunks.TryGetValue(adjacentPos, out Chunk adjacentChunk))
-            {
-                // Determine which faces of the adjacent chunk need updating
-                if (direction.y != 0) // Vertical neighbors
-                {
-                    // Update the entire top or bottom layer of the adjacent chunk
-                    for (int x = 0; x < chunkSize; x++)
-                    {
-                        for (int z = 0; z < chunkSize; z++)
-                        {
-                            int y = direction.y > 0 ? 0 : chunkHeight - 1; // Top or bottom layer
-                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
-                        }
-                    }
-                }
-                else if (direction.x != 0) // Horizontal neighbors (left/right)
-                {
-                    // Update the entire face of the adjacent chunk
-                    for (int y = 0; y < chunkHeight; y++)
-                    {
-                        for (int z = 0; z < chunkSize; z++)
-                        {
-                            int x = direction.x > 0 ? 0 : chunkSize - 1; // Left or right face
-                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
-                        }
-                    }
-                }
-                else // Front/back neighbors
-                {
-                    // Update the entire face of the adjacent chunk
-                    for (int x = 0; x < chunkSize; x++)
-                    {
-                        for (int y = 0; y < chunkHeight; y++)
-                        {
-                            int z = direction.z > 0 ? 0 : chunkSize - 1; // Front or back face
-                            adjacentChunk.UpdateVoxelLighting(new Vector3Int(x, y, z));
-                        }
-                    }
-                }
-
-                // Regenerate the mesh of the adjacent chunk
-                adjacentChunk.GenerateMesh();
-            }
-        }
+        // No need to update lighting anymore
     }
 
     private void UnloadDistantChunks(Vector3Int centerChunkPos)
@@ -258,32 +199,42 @@ public class World : MonoBehaviour
         return chunk;
     }
 
-    public Voxel GetVoxelInWorld(Vector3Int voxelWorldPosition)
+    public bool HasChunkAt(Vector3Int position)
     {
-        // Step 1: Get the chunk position that contains this voxel
-        Vector3Int chunkPosition = GetChunkPosition(voxelWorldPosition);
+        return chunks.ContainsKey(position);
+    }
 
-        // Step 2: Fetch the chunk at this position
-        Chunk chunk = GetChunkAt(chunkPosition);
+    public Voxel GetVoxelInWorld(Vector3Int worldPos)
+    {
+        Vector3Int chunkPos = GetChunkPosition(worldPos);
+        Vector3Int localPos = GetLocalPosition(worldPos);
 
-        // Step 3: If the chunk is null (not loaded), return a default voxel (e.g., air)
-        if (chunk == null)
+        if (chunks.TryGetValue(chunkPos, out Chunk chunk))
         {
-            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false);
+            if (localPos.x >= 0 && localPos.x < chunk.chunkSize &&
+                localPos.y >= 0 && localPos.y < chunk.chunkHeight &&
+                localPos.z >= 0 && localPos.z < chunk.chunkSize)
+            {
+                return chunk.voxels[localPos.x, localPos.y, localPos.z];
+            }
         }
 
-        // Step 4: Convert the world position to local position within the chunk
-        int localX = voxelWorldPosition.x - (chunkPosition.x * chunkSize);
-        int localY = voxelWorldPosition.y - (chunkPosition.y * chunkHeight);
-        int localZ = voxelWorldPosition.z - (chunkPosition.z * chunkSize);
-
-        // Step 5: Ensure the local coordinates are within bounds
-        if (localX < 0 || localX >= chunkSize || localY < 0 || localY >= chunkHeight || localZ < 0 || localZ >= chunkSize)
+        // Return a default voxel with full light
+        return new Voxel
         {
-            return new Voxel(voxelWorldPosition, Voxel.VoxelType.Air, false);
-        }
+            type = Voxel.VoxelType.Air,
+            light = 1f,
+            transparency = 1f
+        };
+    }
 
-        // Step 6: Return the voxel from the chunk's voxel array
-        return chunk.voxels[localX, localY, localZ];
+    private Vector3Int GetLocalPosition(Vector3Int worldPos)
+    {
+        Vector3Int chunkPos = GetChunkPosition(worldPos);
+        return new Vector3Int(
+            worldPos.x - (chunkPos.x * chunkSize),
+            worldPos.y - (chunkPos.y * chunkHeight),
+            worldPos.z - (chunkPos.z * chunkSize)
+        );
     }
 }

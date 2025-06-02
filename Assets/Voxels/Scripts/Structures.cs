@@ -22,7 +22,7 @@ public struct Structure
         switch (structures)
         {
             case StructureList.Test:
-                voxelList[originPos.x, originPos.y, originPos.z] = new(originPos, Voxel.VoxelType.Stone, true);
+                voxelList[originPos.x, originPos.y, originPos.z] = new Voxel(Voxel.VoxelType.Stone, true);
                 break;
         }
     }

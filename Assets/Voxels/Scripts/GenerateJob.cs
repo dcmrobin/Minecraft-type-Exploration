@@ -36,7 +36,7 @@ public struct GenerateJob : IJob
             float calculatedHeight = heightCurveSamples[sampleIndex] * amplitude;
 
             Voxel.VoxelType type = DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
-            voxels[index] = new Voxel(new Vector3(x, y, z), type, type != Voxel.VoxelType.Air);
+            voxels[index] = new Voxel(type, type != Voxel.VoxelType.Air);
         }
     }
 

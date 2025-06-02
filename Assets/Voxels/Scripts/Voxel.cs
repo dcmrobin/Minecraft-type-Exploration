@@ -4,21 +4,27 @@ using Unity.Mathematics;
 
 public struct Voxel
 {
-    public enum VoxelType { Air, Stone, Dirt, Grass, Deepslate, Sand } // Add more types as needed
-    public Vector3 position;
-    public VoxelType type;
-    public bool isActive;
-    public float skyLight; // 0-1 value for sky light
-    public float blockLight; // 0-1 value for block light
-    public float transparency; // 0-1 value, 0 is fully opaque, 1 is fully transparent
-
-    public Voxel(Vector3 position, VoxelType type, bool isActive)
+    public enum VoxelType
     {
-        this.position = position;
+        Air,
+        Dirt,
+        Grass,
+        Stone,
+        Sand,
+        Water,
+        Deepslate
+    }
+
+    public VoxelType type;
+    public float transparency;
+    public float light;
+    public bool isActive;
+
+    public Voxel(VoxelType type, bool isActive = true, float transparency = 1f)
+    {
         this.type = type;
         this.isActive = isActive;
-        this.skyLight = 0f;
-        this.blockLight = 0f;
-        this.transparency = type == VoxelType.Air ? 1f : 0f;
+        this.transparency = transparency;
+        this.light = 1f; // Always fully lit
     }
 }
