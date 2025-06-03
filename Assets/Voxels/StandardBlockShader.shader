@@ -3,6 +3,7 @@
 	Properties {
 		_MainTex ("Block Texture Atlas", 2D) = "white" {}
 		_TextureScale ("Texture Scale", Float) = 0.25
+		_AOStrength ("Ambient Occlusion Strength", Range(0, 1)) = 0.5
 	}
 
 	SubShader {
@@ -36,6 +37,7 @@
 				sampler2D _MainTex;
 				float4 _MainTex_ST;
 				float _TextureScale;
+				float _AOStrength;
 				float GlobalLightLevel;
 				float minGlobalLightLevel;
 				float maxGlobalLightLevel;
@@ -54,9 +56,9 @@
 					}
 					// Grass
 					else if (blockType == 2) {
-						if (faceIndex < 0.1) // Top face
+						if (faceIndex == 0.0) // Top face
 							return float2(0.0, 0.75);
-						if (faceIndex < 0.2) // Bottom face
+						if (faceIndex == 1.0) // Bottom face
 							return float2(0.25, 0.75);
 						return float2(0.0, 0.5); // Side faces
 					}
@@ -115,10 +117,13 @@
 					// Sample the texture
 					fixed4 col = tex2D(_MainTex, uv);
 
-					// Apply lighting
+					// Apply lighting and ambient occlusion
 					float shade = (maxGlobalLightLevel - minGlobalLightLevel) * GlobalLightLevel + minGlobalLightLevel;
-					shade *= i.color.a;
 					shade = clamp(1 - shade, minGlobalLightLevel, maxGlobalLightLevel);
+					
+					// Apply ambient occlusion (higher AO value = darker)
+					float ao = 1.0 - (i.color.a * _AOStrength);
+					col.rgb *= ao;
 
 					clip(col.a - 1);
 					col = lerp(col, float4(0, 0, 0, 1), shade);

@@ -294,25 +294,69 @@ public class Chunk : MonoBehaviour
                 int width = 1;
                 int height = 1;
 
-                // Find width
-                while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
+                // Check if this face will have any ambient occlusion
+                bool hasAO = false;
+                float[] initialAO = new float[4];
+                initialAO[0] = CalculateAO(x, y, z, isTop);
+                initialAO[1] = CalculateAO(x, y, z + 1, isTop);
+                initialAO[2] = CalculateAO(x + 1, y, z + 1, isTop);
+                initialAO[3] = CalculateAO(x + 1, y, z, isTop);
+
+                // If any vertex has AO, don't merge
+                if (initialAO[0] > 0 || initialAO[1] > 0 || initialAO[2] > 0 || initialAO[3] > 0)
                 {
-                    width++;
+                    hasAO = true;
                 }
 
-                // Find height
-                bool canExpand = true;
-                while (canExpand && z + height < chunkSize)
+                // Only try to merge if there's no AO
+                if (!hasAO)
                 {
-                    for (int i = 0; i < width; i++)
+                    // Find width
+                    while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
                     {
-                        if (!mask[x + i, z + height] || types[x + i, z + height] != type)
+                        // Check if the next face would have AO
+                        float[] rightAO = new float[4];
+                        rightAO[0] = CalculateAO(x + width, y, z, isTop);
+                        rightAO[1] = CalculateAO(x + width, y, z + 1, isTop);
+                        rightAO[2] = CalculateAO(x + width + 1, y, z + 1, isTop);
+                        rightAO[3] = CalculateAO(x + width + 1, y, z, isTop);
+
+                        // If any vertex would have AO, stop expanding
+                        if (rightAO[0] > 0 || rightAO[1] > 0 || rightAO[2] > 0 || rightAO[3] > 0)
                         {
-                            canExpand = false;
                             break;
                         }
+                        width++;
                     }
-                    if (canExpand) height++;
+
+                    // Find height
+                    bool canExpand = true;
+                    while (canExpand && z + height < chunkSize)
+                    {
+                        for (int i = 0; i < width; i++)
+                        {
+                            if (!mask[x + i, z + height] || types[x + i, z + height] != type)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+
+                            // Check if the next face would have AO
+                            float[] topAO = new float[4];
+                            topAO[0] = CalculateAO(x + i, y, z + height, isTop);
+                            topAO[1] = CalculateAO(x + i, y, z + height + 1, isTop);
+                            topAO[2] = CalculateAO(x + i + 1, y, z + height + 1, isTop);
+                            topAO[3] = CalculateAO(x + i + 1, y, z + height, isTop);
+
+                            // If any vertex would have AO, stop expanding
+                            if (topAO[0] > 0 || topAO[1] > 0 || topAO[2] > 0 || topAO[3] > 0)
+                            {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) height++;
+                    }
                 }
 
                 // Create the quad
@@ -435,7 +479,9 @@ public class Chunk : MonoBehaviour
     private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
     {
         int vertCount = vertices.Count;
+        float[] aoValues = new float[4];
 
+        // Calculate ambient occlusion for each vertex
         switch (faceIndex)
         {
             case 0: // Top Face
@@ -443,52 +489,133 @@ public class Chunk : MonoBehaviour
                 vertices.Add(new Vector3(position.x, position.y + 1, position.z + height));
                 vertices.Add(new Vector3(position.x + width, position.y + 1, position.z + height));
                 vertices.Add(new Vector3(position.x + width, position.y + 1, position.z));
+                
+                aoValues[0] = CalculateAO((int)position.x, (int)position.y + 1, (int)position.z, true);
+                aoValues[1] = CalculateAO((int)position.x, (int)position.y + 1, (int)position.z + height, true);
+                aoValues[2] = CalculateAO((int)position.x + width, (int)position.y + 1, (int)position.z + height, true);
+                aoValues[3] = CalculateAO((int)position.x + width, (int)position.y + 1, (int)position.z, true);
                 break;
             case 1: // Bottom Face
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y, position.z + height));
+                
+                aoValues[0] = CalculateAO((int)position.x, (int)position.y, (int)position.z, false);
+                aoValues[1] = CalculateAO((int)position.x + width, (int)position.y, (int)position.z, false);
+                aoValues[2] = CalculateAO((int)position.x + width, (int)position.y, (int)position.z + height, false);
+                aoValues[3] = CalculateAO((int)position.x, (int)position.y, (int)position.z + height, false);
                 break;
             case 2: // Left Face
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y + width, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y + width, position.z));
+                
+                aoValues[0] = CalculateAO((int)position.x, (int)position.y, (int)position.z, false);
+                aoValues[1] = CalculateAO((int)position.x, (int)position.y, (int)position.z + height, false);
+                aoValues[2] = CalculateAO((int)position.x, (int)position.y + width, (int)position.z + height, false);
+                aoValues[3] = CalculateAO((int)position.x, (int)position.y + width, (int)position.z, false);
                 break;
             case 3: // Right Face
                 vertices.Add(new Vector3(position.x + 1, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x + 1, position.y, position.z));
                 vertices.Add(new Vector3(position.x + 1, position.y + width, position.z));
                 vertices.Add(new Vector3(position.x + 1, position.y + width, position.z + height));
+                
+                aoValues[0] = CalculateAO((int)position.x + 1, (int)position.y, (int)position.z + height, false);
+                aoValues[1] = CalculateAO((int)position.x + 1, (int)position.y, (int)position.z, false);
+                aoValues[2] = CalculateAO((int)position.x + 1, (int)position.y + width, (int)position.z, false);
+                aoValues[3] = CalculateAO((int)position.x + 1, (int)position.y + width, (int)position.z + height, false);
                 break;
             case 4: // Front Face
                 vertices.Add(new Vector3(position.x, position.y, position.z + 1));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z + 1));
                 vertices.Add(new Vector3(position.x + width, position.y + height, position.z + 1));
                 vertices.Add(new Vector3(position.x, position.y + height, position.z + 1));
+                
+                aoValues[0] = CalculateAO((int)position.x, (int)position.y, (int)position.z + 1, false);
+                aoValues[1] = CalculateAO((int)position.x + width, (int)position.y, (int)position.z + 1, false);
+                aoValues[2] = CalculateAO((int)position.x + width, (int)position.y + height, (int)position.z + 1, false);
+                aoValues[3] = CalculateAO((int)position.x, (int)position.y + height, (int)position.z + 1, false);
                 break;
             case 5: // Back Face
                 vertices.Add(new Vector3(position.x + width, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y + height, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y + height, position.z));
+                
+                aoValues[0] = CalculateAO((int)position.x + width, (int)position.y, (int)position.z, false);
+                aoValues[1] = CalculateAO((int)position.x, (int)position.y, (int)position.z, false);
+                aoValues[2] = CalculateAO((int)position.x, (int)position.y + height, (int)position.z, false);
+                aoValues[3] = CalculateAO((int)position.x + width, (int)position.y + height, (int)position.z, false);
                 break;
         }
 
-        // Store block type in color.r (using the actual enum value)
-        float blockType = (float)type;
+        // Add colors with AO values
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(blockType, 0, 0, 1));
+            Color color = GetBlockColor(type);
+            color.a = aoValues[i];
+            colors.Add(color);
         }
 
+        // Add triangles
         triangles.Add(vertCount);
         triangles.Add(vertCount + 1);
         triangles.Add(vertCount + 2);
         triangles.Add(vertCount);
         triangles.Add(vertCount + 2);
         triangles.Add(vertCount + 3);
+    }
+
+    private float CalculateAO(int x, int y, int z, bool isTop)
+    {
+        float ao = 0;
+        int sides = 0;
+        int corners = 0;
+
+        if (isTop)
+        {
+            // Check adjacent blocks for top face
+            if (IsVoxelSolid(x - 1, y, z)) sides++;
+            if (IsVoxelSolid(x + 1, y, z)) sides++;
+            if (IsVoxelSolid(x, y, z - 1)) sides++;
+            if (IsVoxelSolid(x, y, z + 1)) sides++;
+            
+            // Check corner blocks
+            if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
+            if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
+            if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
+            if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
+        }
+        else
+        {
+            // Check adjacent blocks for bottom face
+            if (IsVoxelSolid(x - 1, y, z)) sides++;
+            if (IsVoxelSolid(x + 1, y, z)) sides++;
+            if (IsVoxelSolid(x, y, z - 1)) sides++;
+            if (IsVoxelSolid(x, y, z + 1)) sides++;
+            
+            // Check corner blocks
+            if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
+            if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
+            if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
+            if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
+        }
+
+        // Calculate AO value based on sides and corners
+        // More sides/corners = more occlusion = darker
+        ao = (sides * 0.2f) + (corners * 0.1f);
+        return ao; // Return the raw AO value (higher = more occlusion)
+    }
+
+    private bool IsVoxelSolid(int x, int y, int z)
+    {
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
+            return false;
+        
+        return voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air;
     }
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
@@ -617,7 +744,7 @@ public class Chunk : MonoBehaviour
                 if (faceIndex == 0) // Top face
                     return new Vector2(0, 0.75f);
                 if (faceIndex == 1) // Bottom face
-                    return new Vector2(0.25f, 0.75f);
+                    return new Vector2(0.25f, 0.75f); // Use dirt texture for bottom
                 return new Vector2(0, 0.5f); // Side faces
 
             case Voxel.VoxelType.Dirt:
@@ -830,5 +957,12 @@ public class Chunk : MonoBehaviour
 
         // Deactivate/activate the entire chunk GameObject based on visibility
         gameObject.SetActive(isVisible);
+    }
+
+    private Color GetBlockColor(Voxel.VoxelType type)
+    {
+        // Store block type in color.r (using the actual enum value)
+        float blockType = (float)type;
+        return new Color(blockType, 0, 0, 1);
     }
 }
