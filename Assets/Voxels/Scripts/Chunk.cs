@@ -34,6 +34,8 @@ public class Chunk : MonoBehaviour
     private bool needsFullRegeneration = true;
     private HashSet<Vector3Int> modifiedBlocks = new HashSet<Vector3Int>();
 
+    private Dictionary<Vector3Int, float> aoCache = new Dictionary<Vector3Int, float>();
+
     private void Awake() {
         pos = transform.position;
         // Initialize chunk bounds
@@ -134,6 +136,9 @@ public class Chunk : MonoBehaviour
 
     private void GenerateFullMesh()
     {
+        // Clear the AO cache before generating a new mesh
+        ClearAOCache();
+        
         vertices.Clear();
         triangles.Clear();
         colors.Clear();
@@ -208,6 +213,9 @@ public class Chunk : MonoBehaviour
 
     private void GeneratePartialMesh()
     {
+        // Clear the AO cache before generating a partial mesh
+        ClearAOCache();
+        
         if (modifiedBlocks.Count == 0) return;
 
         // Store the current mesh data
@@ -571,43 +579,53 @@ public class Chunk : MonoBehaviour
 
     private float CalculateAO(int x, int y, int z, bool isTop)
     {
+        // Create a cache key that includes the face direction
+        Vector3Int cacheKey = new Vector3Int(x, y, z);
+        if (aoCache.TryGetValue(cacheKey, out float cachedAO))
+        {
+            return cachedAO;
+        }
+
+        // Early exit if we're at chunk boundaries
+        if (x <= 0 || x >= chunkSize - 1 || y <= 0 || y >= chunkHeight - 1 || z <= 0 || z >= chunkSize - 1)
+        {
+            return 0;
+        }
+
         float ao = 0;
         int sides = 0;
         int corners = 0;
 
-        if (isTop)
+        // Check adjacent blocks (weight: 0.2)
+        if (IsVoxelSolid(x - 1, y, z)) sides++;
+        if (IsVoxelSolid(x + 1, y, z)) sides++;
+        if (IsVoxelSolid(x, y, z - 1)) sides++;
+        if (IsVoxelSolid(x, y, z + 1)) sides++;
+
+        // Early exit if no sides are solid
+        if (sides == 0)
         {
-            // Check adjacent blocks for top face
-            if (IsVoxelSolid(x - 1, y, z)) sides++;
-            if (IsVoxelSolid(x + 1, y, z)) sides++;
-            if (IsVoxelSolid(x, y, z - 1)) sides++;
-            if (IsVoxelSolid(x, y, z + 1)) sides++;
-            
-            // Check corner blocks
-            if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
-            if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
-            if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
-            if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
-        }
-        else
-        {
-            // Check adjacent blocks for bottom face
-            if (IsVoxelSolid(x - 1, y, z)) sides++;
-            if (IsVoxelSolid(x + 1, y, z)) sides++;
-            if (IsVoxelSolid(x, y, z - 1)) sides++;
-            if (IsVoxelSolid(x, y, z + 1)) sides++;
-            
-            // Check corner blocks
-            if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
-            if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
-            if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
-            if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
+            aoCache[cacheKey] = 0;
+            return 0;
         }
 
-        // Calculate AO value based on sides and corners
-        // More sides/corners = more occlusion = darker
+        // Check corner blocks (weight: 0.1)
+        if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
+        if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
+        if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
+        if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
+
+        // Calculate final AO value
         ao = (sides * 0.2f) + (corners * 0.1f);
-        return ao; // Return the raw AO value (higher = more occlusion)
+
+        // Cache the result
+        aoCache[cacheKey] = ao;
+        return ao;
+    }
+
+    private void ClearAOCache()
+    {
+        aoCache.Clear();
     }
 
     private bool IsVoxelSolid(int x, int y, int z)
