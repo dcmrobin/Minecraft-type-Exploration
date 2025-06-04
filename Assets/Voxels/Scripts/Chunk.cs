@@ -819,14 +819,14 @@ public class Chunk : MonoBehaviour
             Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
             if (neighborChunk != null)
             {
-                // Check if the neighboring voxel is air
-                return neighborChunk.voxels.IsVoxelAir(localPos.x, localPos.y, localPos.z);
+                // Check if the neighboring voxel is solid
+                return neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type == Voxel.VoxelType.Air;
             }
             return true; // If no neighboring chunk exists, consider it hidden
         }
 
         // For positions within this chunk, check if the voxel is air
-        return voxels.IsVoxelAir(x, y, z);
+        return voxels.GetVoxel(x, y, z).type == Voxel.VoxelType.Air;
     }
 
     private Voxel GetVoxelSafe(int x, int y, int z)
@@ -1023,14 +1023,47 @@ public class Chunk : MonoBehaviour
                     Voxel voxel = voxels.GetVoxel(x, y, z);
                     if (voxel.type != Voxel.VoxelType.Air)
                     {
-                        // Check if this block is exposed to the sky
+                        // Check if this block is exposed to the sky by checking all blocks above it
                         bool isExposedToSky = true;
-                        for (int checkY = y + 1; checkY < chunkHeight; checkY++)
+                        int checkY = y + 1;
+                        
+                        // First check blocks in this chunk
+                        while (checkY < chunkHeight)
                         {
                             if (voxels.GetVoxel(x, checkY, z).type != Voxel.VoxelType.Air)
                             {
                                 isExposedToSky = false;
                                 break;
+                            }
+                            checkY++;
+                        }
+
+                        // If we haven't found a solid block yet, check neighboring chunks
+                        if (isExposedToSky)
+                        {
+                            Vector3 worldPos = transform.position + new Vector3(x, checkY, z);
+                            Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
+                            Vector3Int localPos = new Vector3Int(
+                                Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
+                                Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
+                                Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
+                            );
+
+                            Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
+                            while (neighborChunk != null)
+                            {
+                                if (neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type != Voxel.VoxelType.Air)
+                                {
+                                    isExposedToSky = false;
+                                    break;
+                                }
+                                localPos.y++;
+                                if (localPos.y >= chunkHeight)
+                                {
+                                    localPos.y = 0;
+                                    neighborChunkPos.y++;
+                                    neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
+                                }
                             }
                         }
 
