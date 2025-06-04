@@ -43,6 +43,7 @@
 				float maxGlobalLightLevel;
 
 				// Block type is stored in color.r
+				// Light level is stored in color.g (0-15)
 				// 0 = Air, 1 = Dirt, 2 = Grass, 3 = Stone, 4 = Sand, 5 = Water, 6 = Deepslate
 
 				float2 GetTileOffset(float blockType, float faceIndex) {
@@ -119,14 +120,30 @@
 
 					// Apply lighting and ambient occlusion
 					float shade = (maxGlobalLightLevel - minGlobalLightLevel) * GlobalLightLevel + minGlobalLightLevel;
-					shade = clamp(1 - shade, minGlobalLightLevel, maxGlobalLightLevel);
+					
+					// Use the block light directly - it's already in 0.1-1.0 range
+					float blockLight = i.color.g;
+					
+					// Debug: Print the block light value to see if it's being overridden
+					// This will show up in the frame debugger
+					#if UNITY_EDITOR
+					if (blockLight > 0.1 && blockLight < 1.0)
+					{
+						col.rgb = float3(blockLight, blockLight, blockLight);
+						return col;
+					}
+					#endif
+					
+					// Combine global and block lighting, but prioritize block light
+					shade = blockLight;
 					
 					// Apply ambient occlusion (higher AO value = darker)
 					float ao = 1.0 - (i.color.a * _AOStrength);
 					col.rgb *= ao;
 
 					clip(col.a - 1);
-					col = lerp(col, float4(0, 0, 0, 1), shade);
+					// Apply lighting (higher shade = brighter)
+					col.rgb = lerp(float4(0, 0, 0, 1), col, shade).rgb;
 
 					return col;
 				}

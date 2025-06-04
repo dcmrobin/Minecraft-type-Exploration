@@ -372,7 +372,7 @@ public class World : MonoBehaviour
         return new Voxel
         {
             type = Voxel.VoxelType.Air,
-            light = 1f,
+            //light = 1f,
             transparency = 1f
         };
     }

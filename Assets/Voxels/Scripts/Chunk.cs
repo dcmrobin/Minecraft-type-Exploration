@@ -156,20 +156,21 @@ public class Chunk : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
+                    Voxel voxel = voxels.GetVoxel(x, y, z);
+                    if (voxel.type != Voxel.VoxelType.Air)
                     {
                         // Check top face
                         if (IsVoxelHiddenInChunk(x, y + 1, z))
                         {
                             topMask[x, z] = true;
-                            topTypes[x, z] = voxels.GetVoxel(x, y, z).type;
+                            topTypes[x, z] = voxel.type;
                         }
 
                         // Check bottom face
                         if (IsVoxelHiddenInChunk(x, y - 1, z))
                         {
                             bottomMask[x, z] = true;
-                            bottomTypes[x, z] = voxels.GetVoxel(x, y, z).type;
+                            bottomTypes[x, z] = voxel.type;
                         }
                     }
                 }
@@ -190,8 +191,8 @@ public class Chunk : MonoBehaviour
         }
 
         // Front and back faces
-                for (int z = 0; z < chunkSize; z++)
-                {
+        for (int z = 0; z < chunkSize; z++)
+        {
             GreedyMeshSlice(z, false, true);  // Front face
             GreedyMeshSlice(z, false, false); // Back face
         }
@@ -222,6 +223,7 @@ public class Chunk : MonoBehaviour
         Mesh currentMesh = meshFilter.mesh;
         Vector3[] oldVertices = currentMesh.vertices;
         int[] oldTriangles = currentMesh.triangles;
+        Vector2[] oldUVs = currentMesh.uv;
         Color[] oldColors = currentMesh.colors;
 
         // Clear lists for new mesh data
@@ -560,11 +562,21 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Add colors with AO values
+        // Add colors with AO values and light levels
         for (int i = 0; i < 4; i++)
         {
             Color color = GetBlockColor(type);
             color.a = aoValues[i];
+            
+            // Get light level from the block itself
+            int x = (int)position.x;
+            int y = (int)position.y;
+            int z = (int)position.z;
+            
+            // Get the light level from the block and normalize it to 0.1-1.0 range
+            Voxel voxel = voxels.GetVoxel(x, y, z);
+            // Convert from 0-15 to 0.1-1.0 range
+            color.g = 0.1f + (voxel.lightLevel / 15.0f * 0.9f);
             colors.Add(color);
         }
 
@@ -661,7 +673,8 @@ public class Chunk : MonoBehaviour
         );
 
         GenerateVoxelData(transform.position);
-        GenerateMesh();
+        UpdateLighting(); // Add lighting calculation
+        GenerateFullMesh(); // Generate the initial mesh
     }
 
     private void ProcessVoxel(int x, int y, int z)
@@ -973,8 +986,8 @@ public class Chunk : MonoBehaviour
             new Bounds(transform.position + chunkBounds.center, chunkBounds.size)
         );
 
-        // Deactivate/activate the entire chunk GameObject based on visibility
-        gameObject.SetActive(isVisible);
+        // Only deactivate/activate the mesh renderer based on visibility
+        meshRenderer.enabled = isVisible;
     }
 
     private Color GetBlockColor(Voxel.VoxelType type)
@@ -982,5 +995,102 @@ public class Chunk : MonoBehaviour
         // Store block type in color.r (using the actual enum value)
         float blockType = (float)type;
         return new Color(blockType, 0, 0, 1);
+    }
+
+    private void UpdateLighting()
+    {
+        // Initialize all blocks with minimum light
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    Voxel voxel = voxels.GetVoxel(x, y, z);
+                    voxel.lightLevel = 0;
+                    voxels.SetVoxel(x, y, z, voxel);
+                }
+            }
+        }
+
+        // First pass: Check each block for sky exposure and set initial light
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    Voxel voxel = voxels.GetVoxel(x, y, z);
+                    if (voxel.type != Voxel.VoxelType.Air)
+                    {
+                        // Check if this block is exposed to the sky
+                        bool isExposedToSky = true;
+                        for (int checkY = y + 1; checkY < chunkHeight; checkY++)
+                        {
+                            if (voxels.GetVoxel(x, checkY, z).type != Voxel.VoxelType.Air)
+                            {
+                                isExposedToSky = false;
+                                break;
+                            }
+                        }
+
+                        if (isExposedToSky)
+                        {
+                            voxel.lightLevel = 15;
+                            voxels.SetVoxel(x, y, z, voxel);
+                            MarkBlockModified(x, y, z);
+
+                            // Start the chain reaction of light propagation
+                            if (x > 0) PropagateLightToNeighbor(x - 1, y, z, 13);
+                            if (x < chunkSize - 1) PropagateLightToNeighbor(x + 1, y, z, 13);
+                            if (y > 0) PropagateLightToNeighbor(x, y - 1, z, 13);
+                            if (y < chunkHeight - 1) PropagateLightToNeighbor(x, y + 1, z, 13);
+                            if (z > 0) PropagateLightToNeighbor(x, y, z - 1, 13);
+                            if (z < chunkSize - 1) PropagateLightToNeighbor(x, y, z + 1, 13);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void PropagateLightToNeighbor(int x, int y, int z, byte lightLevel)
+    {
+        Voxel neighborVoxel = voxels.GetVoxel(x, y, z);
+        
+        // Only propagate to solid blocks (removed air adjacency check for debugging)
+        if (neighborVoxel.type != Voxel.VoxelType.Air)
+        {
+            // If the new light level is higher than the current one, update it
+            if (lightLevel > neighborVoxel.lightLevel)
+            {
+                neighborVoxel.lightLevel = lightLevel;
+                voxels.SetVoxel(x, y, z, neighborVoxel);
+                MarkBlockModified(x, y, z);
+
+                // Continue the chain reaction if we have enough light to propagate
+                if (lightLevel > 1)
+                {
+                    // Reduce light level by 2 for each step to create smoother transitions
+                    byte newLightLevel = (byte)(lightLevel - 2);
+                    
+                    // Create a list of neighbors to propagate to
+                    List<(int x, int y, int z)> neighbors = new List<(int x, int y, int z)>();
+                    
+                    if (x > 0) neighbors.Add((x - 1, y, z));
+                    if (x < chunkSize - 1) neighbors.Add((x + 1, y, z));
+                    if (y > 0) neighbors.Add((x, y - 1, z));
+                    if (y < chunkHeight - 1) neighbors.Add((x, y + 1, z));
+                    if (z > 0) neighbors.Add((x, y, z - 1));
+                    if (z < chunkSize - 1) neighbors.Add((x, y, z + 1));
+
+                    // Propagate to all neighbors
+                    foreach (var neighbor in neighbors)
+                    {
+                        PropagateLightToNeighbor(neighbor.x, neighbor.y, neighbor.z, newLightLevel);
+                    }
+                }
+            }
+        }
     }
 }

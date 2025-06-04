@@ -17,7 +17,7 @@ public struct Voxel
 
     public VoxelType type;
     public float transparency;
-    public float light;
+    public byte lightLevel; // 0-15 light level like Minecraft
     public bool isActive;
 
     public Voxel(VoxelType type, bool isActive = true, float transparency = 1f)
@@ -25,6 +25,6 @@ public struct Voxel
         this.type = type;
         this.isActive = isActive;
         this.transparency = transparency;
-        this.light = 1f; // Always fully lit
+        this.lightLevel = 15; // Start fully lit
     }
 }
