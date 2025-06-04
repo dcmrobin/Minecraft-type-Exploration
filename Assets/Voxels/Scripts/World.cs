@@ -401,7 +401,8 @@ public class World : MonoBehaviour
             // Update the block
             chunk.voxels.SetVoxel(localPos.x, localPos.y, localPos.z, new Voxel(type, type != Voxel.VoxelType.Air));
             
-            // Regenerate the chunk's mesh
+            // Update lighting for this chunk and adjacent chunks
+            chunk.UpdateLighting();
             chunk.GenerateMesh();
 
             // Update adjacent chunks if the block is on a chunk border
@@ -410,6 +411,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(-1, 0, 0);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }
@@ -418,6 +420,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(1, 0, 0);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }
@@ -427,6 +430,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, -1, 0);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }
@@ -435,6 +439,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 1, 0);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }
@@ -444,6 +449,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, -1);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }
@@ -452,6 +458,7 @@ public class World : MonoBehaviour
                 Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, 1);
                 if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
                 {
+                    adjChunk.UpdateLighting();
                     adjChunk.GenerateMesh();
                 }
             }

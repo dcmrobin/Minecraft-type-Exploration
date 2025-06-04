@@ -191,8 +191,8 @@ public class Chunk : MonoBehaviour
         }
 
         // Front and back faces
-        for (int z = 0; z < chunkSize; z++)
-        {
+                for (int z = 0; z < chunkSize; z++)
+                {
             GreedyMeshSlice(z, false, true);  // Front face
             GreedyMeshSlice(z, false, false); // Back face
         }
@@ -321,9 +321,9 @@ public class Chunk : MonoBehaviour
                 // Only try to merge if there's no AO
                 if (!hasAO)
                 {
-                    // Find width
-                    while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
-                    {
+                // Find width
+                while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
+                {
                         // Check if the next face would have AO
                         float[] rightAO = new float[4];
                         rightAO[0] = CalculateAO(x + width, y, z, isTop);
@@ -336,20 +336,20 @@ public class Chunk : MonoBehaviour
                         {
                             break;
                         }
-                        width++;
-                    }
+                    width++;
+                }
 
-                    // Find height
-                    bool canExpand = true;
-                    while (canExpand && z + height < chunkSize)
+                // Find height
+                bool canExpand = true;
+                while (canExpand && z + height < chunkSize)
+                {
+                    for (int i = 0; i < width; i++)
                     {
-                        for (int i = 0; i < width; i++)
+                        if (!mask[x + i, z + height] || types[x + i, z + height] != type)
                         {
-                            if (!mask[x + i, z + height] || types[x + i, z + height] != type)
-                            {
-                                canExpand = false;
-                                break;
-                            }
+                            canExpand = false;
+                            break;
+                        }
 
                             // Check if the next face would have AO
                             float[] topAO = new float[4];
@@ -360,12 +360,12 @@ public class Chunk : MonoBehaviour
 
                             // If any vertex would have AO, stop expanding
                             if (topAO[0] > 0 || topAO[1] > 0 || topAO[2] > 0 || topAO[3] > 0)
-                            {
-                                canExpand = false;
-                                break;
-                            }
+                        {
+                            canExpand = false;
+                            break;
                         }
-                        if (canExpand) height++;
+                    }
+                    if (canExpand) height++;
                     }
                 }
 
