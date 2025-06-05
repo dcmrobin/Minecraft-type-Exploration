@@ -2,7 +2,9 @@ using Unity.Mathematics;
 using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
+using Unity.Burst;
 
+[BurstCompile]
 public struct LightingJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<Voxel> voxels;
@@ -62,12 +64,24 @@ public struct LightingJob : IJobParallelFor
     }
 }
 
+[BurstCompile]
 public struct LightPropagationJob : IJob
 {
     [ReadOnly] public NativeArray<Voxel> voxels;
     [ReadOnly] public int chunkSize;
     [ReadOnly] public int chunkHeight;
     public NativeArray<byte> lightLevels;
+
+    // Fixed-size array for neighbor offsets
+    private static readonly int3[] neighborOffsets = new int3[]
+    {
+        new int3(-1, 0, 0),  // left
+        new int3(1, 0, 0),   // right
+        new int3(0, -1, 0),  // bottom
+        new int3(0, 1, 0),   // top
+        new int3(0, 0, -1),  // back
+        new int3(0, 0, 1)    // front
+    };
 
     public void Execute()
     {
@@ -105,22 +119,13 @@ public struct LightPropagationJob : IJob
 
             byte newLight = (byte)(currentLight - 2);
 
-            // Check all 6 neighbors
-            int[] neighborOffsets = new int[]
-            {
-                -1, 0, 0,  // left
-                1, 0, 0,   // right
-                0, -1, 0,  // bottom
-                0, 1, 0,   // top
-                0, 0, -1,  // back
-                0, 0, 1    // front
-            };
-
+            // Check all 6 neighbors using the fixed-size array
             for (int i = 0; i < 6; i++)
             {
-                int nx = x + neighborOffsets[i * 3];
-                int ny = y + neighborOffsets[i * 3 + 1];
-                int nz = z + neighborOffsets[i * 3 + 2];
+                int3 offset = neighborOffsets[i];
+                int nx = x + offset.x;
+                int ny = y + offset.y;
+                int nz = z + offset.z;
 
                 if (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkHeight || nz < 0 || nz >= chunkSize)
                     continue;
@@ -138,6 +143,7 @@ public struct LightPropagationJob : IJob
     }
 }
 
+[BurstCompile]
 public struct GenerateJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightCurveSamples;
@@ -223,6 +229,7 @@ public struct GenerateJob : IJobParallelFor
 }
 
 // New job to find minimum height
+[BurstCompile]
 public struct FindMinHeightJob : IJob
 {
     [ReadOnly] public NativeArray<float> allHeights;
