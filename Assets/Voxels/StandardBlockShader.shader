@@ -133,7 +133,7 @@
 
 					clip(col.a - 1);
 					// Apply lighting (higher shade = brighter)
-					col.rgb = lerp(float4(0, 0, 0, 1), col, shade).rgb;
+					col.rgb = lerp(float4(0, 0, 0, 1), col, shade - 0.07).rgb;
 
 					return col;
 				}
