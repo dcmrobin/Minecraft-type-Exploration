@@ -999,131 +999,62 @@ public class Chunk : MonoBehaviour
 
     private void UpdateLighting()
     {
-        // Initialize all blocks with minimum light
-        for (int x = 0; x < chunkSize; x++)
+        // Create native arrays for the jobs
+        NativeArray<byte> lightLevels = new NativeArray<byte>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+        NativeArray<Voxel> voxelArray = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+
+        // Copy voxel data to native array
+        for (int i = 0; i < voxelArray.Length; i++)
         {
-            for (int y = 0; y < chunkHeight; y++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    Voxel voxel = voxels.GetVoxel(x, y, z);
-                    voxel.lightLevel = 0;
-                    voxels.SetVoxel(x, y, z, voxel);
-                }
-            }
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            voxelArray[i] = voxels.GetVoxel(x, y, z);
         }
 
-        // First pass: Check each block for sky exposure and set initial light
-        for (int x = 0; x < chunkSize; x++)
+        // Create and schedule the initial lighting job
+        LightingJob lightingJob = new LightingJob
         {
-            for (int z = 0; z < chunkSize; z++)
-            {
-                for (int y = chunkHeight - 1; y >= 0; y--)
-                {
-                    Voxel voxel = voxels.GetVoxel(x, y, z);
-                    if (voxel.type != Voxel.VoxelType.Air)
-                    {
-                        // Check if this block is exposed to the sky by checking all blocks above it
-                        bool isExposedToSky = true;
-                        int checkY = y + 1;
-                        
-                        // First check blocks in this chunk
-                        while (checkY < chunkHeight)
-                        {
-                            if (voxels.GetVoxel(x, checkY, z).type != Voxel.VoxelType.Air)
-                            {
-                                isExposedToSky = false;
-                                break;
-                            }
-                            checkY++;
-                        }
+            voxels = voxelArray,
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            chunkWorldPosition = transform.position,
+            worldSeed = World.Instance.noiseSeed,
+            lightLevels = lightLevels
+        };
 
-                        // If we haven't found a solid block yet, check neighboring chunks
-                        if (isExposedToSky)
-                        {
-                            Vector3 worldPos = transform.position + new Vector3(x, checkY, z);
-                            Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
-                            Vector3Int localPos = new Vector3Int(
-                                Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
-                                Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
-                                Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
-                            );
+        JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);
+        lightingHandle.Complete();
 
-                            Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
-                            while (neighborChunk != null)
-                            {
-                                if (neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type != Voxel.VoxelType.Air)
-                                {
-                                    isExposedToSky = false;
-                                    break;
-                                }
-                                localPos.y++;
-                                if (localPos.y >= chunkHeight)
-                                {
-                                    localPos.y = 0;
-                                    neighborChunkPos.y++;
-                                    neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
-                                }
-                            }
-                        }
-
-                        if (isExposedToSky)
-                        {
-                            voxel.lightLevel = 15;
-                            voxels.SetVoxel(x, y, z, voxel);
-                            MarkBlockModified(x, y, z);
-
-                            // Start the chain reaction of light propagation
-                            if (x > 0) PropagateLightToNeighbor(x - 1, y, z, 13);
-                            if (x < chunkSize - 1) PropagateLightToNeighbor(x + 1, y, z, 13);
-                            if (y > 0) PropagateLightToNeighbor(x, y - 1, z, 13);
-                            if (y < chunkHeight - 1) PropagateLightToNeighbor(x, y + 1, z, 13);
-                            if (z > 0) PropagateLightToNeighbor(x, y, z - 1, 13);
-                            if (z < chunkSize - 1) PropagateLightToNeighbor(x, y, z + 1, 13);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private void PropagateLightToNeighbor(int x, int y, int z, byte lightLevel)
-    {
-        Voxel neighborVoxel = voxels.GetVoxel(x, y, z);
-        
-        // Only propagate to solid blocks (removed air adjacency check for debugging)
-        if (neighborVoxel.type != Voxel.VoxelType.Air)
+        // Create and schedule the light propagation job
+        LightPropagationJob propagationJob = new LightPropagationJob
         {
-            // If the new light level is higher than the current one, update it
-            if (lightLevel > neighborVoxel.lightLevel)
+            voxels = voxelArray,
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            lightLevels = lightLevels
+        };
+
+        JobHandle propagationHandle = propagationJob.Schedule();
+        propagationHandle.Complete();
+
+        // Copy light levels back to voxels
+        for (int i = 0; i < lightLevels.Length; i++)
+        {
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            Voxel voxel = voxels.GetVoxel(x, y, z);
+            voxel.lightLevel = lightLevels[i];
+            voxels.SetVoxel(x, y, z, voxel);
+            if (voxel.lightLevel > 0)
             {
-                neighborVoxel.lightLevel = lightLevel;
-                voxels.SetVoxel(x, y, z, neighborVoxel);
                 MarkBlockModified(x, y, z);
-
-                // Continue the chain reaction if we have enough light to propagate
-                if (lightLevel > 1)
-                {
-                    // Reduce light level by 2 for each step to create smoother transitions
-                    byte newLightLevel = (byte)(lightLevel - 2);
-                    
-                    // Create a list of neighbors to propagate to
-                    List<(int x, int y, int z)> neighbors = new List<(int x, int y, int z)>();
-                    
-                    if (x > 0) neighbors.Add((x - 1, y, z));
-                    if (x < chunkSize - 1) neighbors.Add((x + 1, y, z));
-                    if (y > 0) neighbors.Add((x, y - 1, z));
-                    if (y < chunkHeight - 1) neighbors.Add((x, y + 1, z));
-                    if (z > 0) neighbors.Add((x, y, z - 1));
-                    if (z < chunkSize - 1) neighbors.Add((x, y, z + 1));
-
-                    // Propagate to all neighbors
-                    foreach (var neighbor in neighbors)
-                    {
-                        PropagateLightToNeighbor(neighbor.x, neighbor.y, neighbor.z, newLightLevel);
-                    }
-                }
             }
         }
+
+        // Clean up
+        lightLevels.Dispose();
+        voxelArray.Dispose();
     }
 }

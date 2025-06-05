@@ -3,6 +3,133 @@ using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
 
+public struct LightingJob : IJobParallelFor
+{
+    [ReadOnly] public NativeArray<Voxel> voxels;
+    [ReadOnly] public int chunkSize;
+    [ReadOnly] public int chunkHeight;
+    [ReadOnly] public Vector3 chunkWorldPosition;
+    [ReadOnly] public int worldSeed;
+
+    [WriteOnly] public NativeArray<byte> lightLevels;
+
+    public void Execute(int index)
+    {
+        int x = index % chunkSize;
+        int y = (index % (chunkSize * chunkHeight)) / chunkSize;
+        int z = index / (chunkSize * chunkHeight);
+
+        Voxel voxel = voxels[index];
+        if (voxel.type == Voxel.VoxelType.Air)
+        {
+            lightLevels[index] = 0;
+            return;
+        }
+
+        // Check if block is exposed to sky
+        bool isExposedToSky = true;
+        int checkY = y + 1;
+
+        // Check blocks in current chunk
+        while (checkY < chunkHeight)
+        {
+            int checkIndex = x + (checkY * chunkSize) + (z * chunkSize * chunkHeight);
+            if (voxels[checkIndex].type != Voxel.VoxelType.Air)
+            {
+                isExposedToSky = false;
+                break;
+            }
+            checkY++;
+        }
+
+        // If exposed to sky, set initial light level
+        if (isExposedToSky)
+        {
+            lightLevels[index] = 15;
+        }
+        else
+        {
+            lightLevels[index] = 0;
+        }
+    }
+}
+
+public struct LightPropagationJob : IJob
+{
+    [ReadOnly] public NativeArray<Voxel> voxels;
+    [ReadOnly] public int chunkSize;
+    [ReadOnly] public int chunkHeight;
+    public NativeArray<byte> lightLevels;
+
+    public void Execute()
+    {
+        // Create a queue for blocks that need light propagation
+        NativeList<int> propagationQueue = new NativeList<int>(Allocator.Temp);
+        
+        // First pass: Add all sky-exposed blocks to the queue
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    int index = x + (y * chunkSize) + (z * chunkSize * chunkHeight);
+                    if (lightLevels[index] == 15)
+                    {
+                        propagationQueue.Add(index);
+                    }
+                }
+            }
+        }
+
+        // Process the queue
+        while (propagationQueue.Length > 0)
+        {
+            int currentIndex = propagationQueue[0];
+            propagationQueue.RemoveAt(0);
+
+            int x = currentIndex % chunkSize;
+            int y = (currentIndex % (chunkSize * chunkHeight)) / chunkSize;
+            int z = currentIndex / (chunkSize * chunkHeight);
+
+            byte currentLight = lightLevels[currentIndex];
+            if (currentLight <= 1) continue;
+
+            byte newLight = (byte)(currentLight - 2);
+
+            // Check all 6 neighbors
+            int[] neighborOffsets = new int[]
+            {
+                -1, 0, 0,  // left
+                1, 0, 0,   // right
+                0, -1, 0,  // bottom
+                0, 1, 0,   // top
+                0, 0, -1,  // back
+                0, 0, 1    // front
+            };
+
+            for (int i = 0; i < 6; i++)
+            {
+                int nx = x + neighborOffsets[i * 3];
+                int ny = y + neighborOffsets[i * 3 + 1];
+                int nz = z + neighborOffsets[i * 3 + 2];
+
+                if (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkHeight || nz < 0 || nz >= chunkSize)
+                    continue;
+
+                int neighborIndex = nx + (ny * chunkSize) + (nz * chunkSize * chunkHeight);
+                if (voxels[neighborIndex].type != Voxel.VoxelType.Air && lightLevels[neighborIndex] < newLight)
+                {
+                    lightLevels[neighborIndex] = newLight;
+                    propagationQueue.Add(neighborIndex);
+                }
+            }
+        }
+
+        propagationQueue.Dispose();
+    }
+}
+
 public struct GenerateJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightCurveSamples;
