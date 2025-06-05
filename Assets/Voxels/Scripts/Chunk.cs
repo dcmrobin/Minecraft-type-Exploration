@@ -169,8 +169,108 @@ public class Chunk : MonoBehaviour
         }
     }
 
+    private struct MeshGenerationJob : IJob
+    {
+        public NativeArray<Vector3> vertices;
+        public NativeArray<int> triangles;
+        public NativeArray<Color> colors;
+        public NativeArray<Voxel> voxels;
+        public int chunkSize;
+        public int chunkHeight;
+        public Vector3 chunkPosition;
+
+        public void Execute()
+        {
+            // Process top and bottom faces with greedy meshing
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                bool[,] topMask = new bool[chunkSize, chunkSize];
+                bool[,] bottomMask = new bool[chunkSize, chunkSize];
+                Voxel.VoxelType[,] topTypes = new Voxel.VoxelType[chunkSize, chunkSize];
+                Voxel.VoxelType[,] bottomTypes = new Voxel.VoxelType[chunkSize, chunkSize];
+
+                // Create masks for this layer
+                for (int x = 0; x < chunkSize; x++)
+                {
+                    for (int z = 0; z < chunkSize; z++)
+                    {
+                        Voxel voxel = voxels[x + y * chunkSize + z * chunkSize * chunkHeight];
+                        if (voxel.type != Voxel.VoxelType.Air)
+                        {
+                            // Check top face
+                            if (IsVoxelHiddenInChunk(x, y + 1, z))
+                            {
+                                topMask[x, z] = true;
+                                topTypes[x, z] = voxel.type;
+                            }
+
+                            // Check bottom face
+                            if (IsVoxelHiddenInChunk(x, y - 1, z))
+                            {
+                                bottomMask[x, z] = true;
+                                bottomTypes[x, z] = voxel.type;
+                            }
+                        }
+                    }
+                }
+
+                // Greedy meshing for top faces
+                GreedyMeshLayer(y, true, topMask, topTypes);
+                // Greedy meshing for bottom faces
+                GreedyMeshLayer(y, false, bottomMask, bottomTypes);
+            }
+
+            // Process side faces with greedy meshing
+            // Left and right faces
+            for (int x = 0; x < chunkSize; x++)
+            {
+                GreedyMeshSlice(x, true, true);  // Right face
+                GreedyMeshSlice(x, true, false); // Left face
+            }
+
+            // Front and back faces
+            for (int z = 0; z < chunkSize; z++)
+            {
+                GreedyMeshSlice(z, false, true);  // Front face
+                GreedyMeshSlice(z, false, false); // Back face
+            }
+        }
+
+        private bool IsVoxelHiddenInChunk(int x, int y, int z)
+        {
+            if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
+                return true;
+            
+            return voxels[x + y * chunkSize + z * chunkSize * chunkHeight].type == Voxel.VoxelType.Air;
+        }
+
+        private void GreedyMeshLayer(int y, bool isTop, bool[,] mask, Voxel.VoxelType[,] types)
+        {
+            // Implementation similar to the original but using NativeArrays
+            // ... (implement the greedy meshing logic here)
+        }
+
+        private void GreedyMeshSlice(int slice, bool isX, bool isPositive)
+        {
+            // Implementation similar to the original but using NativeArrays
+            // ... (implement the slice meshing logic here)
+        }
+    }
+
     private void GenerateFullMesh()
     {
+        // Early exit if no voxels are present
+        if (voxels == null || voxels.IsEmpty())
+        {
+            if (meshFilter.mesh != null)
+            {
+                ReturnMeshToPool(meshFilter.mesh);
+                meshFilter.mesh = null;
+                meshCollider.sharedMesh = null;
+            }
+            return;
+        }
+
         // Clear the AO cache before generating a new mesh
         ClearAOCache();
         
@@ -226,22 +326,32 @@ public class Chunk : MonoBehaviour
         }
 
         // Front and back faces
-                for (int z = 0; z < chunkSize; z++)
-                {
+        for (int z = 0; z < chunkSize; z++)
+        {
             GreedyMeshSlice(z, false, true);  // Front face
             GreedyMeshSlice(z, false, false); // Back face
         }
 
-        if (vertices.Count > 0)
+        // Early exit if no vertices were generated
+        if (vertices.Count == 0)
         {
-            Mesh mesh = GetMeshFromPool();
-            mesh.SetVertices(vertices);
-            mesh.SetTriangles(triangles, 0);
-            mesh.SetColors(colors);
-            mesh.RecalculateNormals();
-            meshFilter.mesh = mesh;
-            meshCollider.sharedMesh = mesh;
+            if (meshFilter.mesh != null)
+            {
+                ReturnMeshToPool(meshFilter.mesh);
+                meshFilter.mesh = null;
+                meshCollider.sharedMesh = null;
+            }
+            return;
         }
+
+        // Create and update the mesh
+        Mesh mesh = GetMeshFromPool();
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0);
+        mesh.SetColors(colors);
+        mesh.RecalculateNormals();
+        meshFilter.mesh = mesh;
+        meshCollider.sharedMesh = mesh;
 
         needsFullRegeneration = true;
         modifiedBlocks.Clear();
@@ -621,11 +731,8 @@ public class Chunk : MonoBehaviour
             return 0;
         }
 
-        float ao = 0;
-        int sides = 0;
-        int corners = 0;
-
         // Check adjacent blocks (weight: 0.2)
+        int sides = 0;
         if (IsVoxelSolid(x - 1, y, z)) sides++;
         if (IsVoxelSolid(x + 1, y, z)) sides++;
         if (IsVoxelSolid(x, y, z - 1)) sides++;
@@ -639,13 +746,14 @@ public class Chunk : MonoBehaviour
         }
 
         // Check corner blocks (weight: 0.1)
+        int corners = 0;
         if (IsVoxelSolid(x - 1, y, z - 1)) corners++;
         if (IsVoxelSolid(x + 1, y, z - 1)) corners++;
         if (IsVoxelSolid(x - 1, y, z + 1)) corners++;
         if (IsVoxelSolid(x + 1, y, z + 1)) corners++;
 
         // Calculate final AO value
-        ao = (sides * 0.2f) + (corners * 0.1f);
+        float ao = (sides * 0.2f) + (corners * 0.1f);
 
         // Cache the result
         aoCache[cacheKey] = ao;

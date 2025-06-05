@@ -66,6 +66,11 @@ public class OptimizedVoxelStorage
         return voxelMap.GetEnumerator();
     }
 
+    public bool IsEmpty()
+    {
+        return voxelMap.Count == 0;
+    }
+
     // Add indexer for compatibility with array-like access
     public Voxel this[int x, int y, int z]
     {
