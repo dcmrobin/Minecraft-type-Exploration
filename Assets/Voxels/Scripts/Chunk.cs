@@ -254,26 +254,8 @@ public class Chunk : MonoBehaviour
             }
         }
 
-        // Process each block
-        foreach (var block in blocksToProcess)
-        {
-            ProcessVoxel(block.x, block.y, block.z);
-        }
-
-        // Create new mesh
-        if (vertices.Count > 0)
-        {
-            Mesh newMesh = GetMeshFromPool();
-            newMesh.SetVertices(vertices);
-            newMesh.SetTriangles(triangles, 0);
-            newMesh.SetColors(colors);
-            newMesh.RecalculateNormals();
-            meshFilter.mesh = newMesh;
-            meshCollider.sharedMesh = newMesh;
-
-            // Return old mesh to pool
-            ReturnMeshToPool(currentMesh);
-        }
+        // Generate mesh for the modified blocks
+        GenerateMesh();
 
         modifiedBlocks.Clear();
     }
@@ -677,19 +659,159 @@ public class Chunk : MonoBehaviour
         GenerateFullMesh(); // Generate the initial mesh
     }
 
-    private void ProcessVoxel(int x, int y, int z)
+    public void ResetChunk() {
+        // Clear voxel data
+        voxels.Clear();
+
+        // Clear mesh data
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+
+        // Regenerate voxel data
+        GenerateVoxelData(transform.position);
+    }
+
+    public void UpdateAdjacentFaces(Vector3Int direction)
     {
-        if (voxels == null || x < 0 || x >= voxels.Length || y < 0 || y >= voxels.Height || z < 0 || z >= voxels.Length)
+        // Store the current mesh data
+        Vector3[] oldVertices = meshFilter.mesh.vertices;
+        int[] oldTriangles = meshFilter.mesh.triangles;
+        Vector2[] oldUVs = meshFilter.mesh.uv;
+        Color[] oldColors = meshFilter.mesh.colors;
+
+        // Clear lists for new mesh data
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+
+        // Determine which faces to check based on the direction
+        int startX = direction.x == 1 ? chunkSize - 1 : 0;
+        int endX = direction.x == -1 ? 1 : chunkSize;
+        int startY = direction.y == 1 ? chunkHeight - 1 : 0;
+        int endY = direction.y == -1 ? 1 : chunkHeight;
+        int startZ = direction.z == 1 ? chunkSize - 1 : 0;
+        int endZ = direction.z == -1 ? 1 : chunkSize;
+
+        // Create a HashSet to track which vertices we've updated
+        HashSet<int> updatedVertexIndices = new HashSet<int>();
+
+        // Only process voxels on the face that's adjacent to the new chunk
+        for (int y = startY; y < endY; y++)
         {
-            return;
+            for (int x = startX; x < endX; x++)
+            {
+                for (int z = startZ; z < endZ; z++)
+                {
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
+                    {
+                        MarkBlockModified(x, y, z);
+                    }
+                }
+            }
         }
 
-        Voxel voxel = voxels.GetVoxel(x, y, z);
-        if (voxel.isActive)
+        // Generate mesh for the modified blocks
+        GenerateMesh();
+    }
+
+    public void UpdateVisibility(Camera mainCamera)
+    {
+        if (mainCamera == null) return;
+
+        // Get camera frustum corners
+        mainCamera.CalculateFrustumCorners(
+            new Rect(0, 0, 1, 1),
+            mainCamera.farClipPlane,
+            Camera.MonoOrStereoscopicEye.Mono,
+            frustumCorners
+        );
+
+        // Transform frustum corners to world space
+        for (int i = 0; i < 4; i++)
         {
-            // We'll handle face generation in GenerateMesh instead
-            return;
+            frustumCorners[i] = mainCamera.transform.TransformPoint(frustumCorners[i]);
+            frustumCorners[i + 4] = mainCamera.transform.TransformPoint(frustumCorners[i + 4]);
         }
+
+        // Check if chunk bounds intersect with frustum
+        isVisible = GeometryUtility.TestPlanesAABB(
+            GeometryUtility.CalculateFrustumPlanes(mainCamera),
+            new Bounds(transform.position + chunkBounds.center, chunkBounds.size)
+        );
+
+        // Only deactivate/activate the mesh renderer based on visibility
+        meshRenderer.enabled = isVisible;
+    }
+
+    private Color GetBlockColor(Voxel.VoxelType type)
+    {
+        // Store block type in color.r (using the actual enum value)
+        float blockType = (float)type;
+        return new Color(blockType, 0, 0, 1);
+    }
+
+    private void UpdateLighting()
+    {
+        // Create native arrays for the jobs
+        NativeArray<byte> lightLevels = new NativeArray<byte>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+        NativeArray<Voxel> voxelArray = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+
+        // Copy voxel data to native array
+        for (int i = 0; i < voxelArray.Length; i++)
+        {
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            voxelArray[i] = voxels.GetVoxel(x, y, z);
+        }
+
+        // Create and schedule the initial lighting job
+        LightingJob lightingJob = new LightingJob
+        {
+            voxels = voxelArray,
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            chunkWorldPosition = transform.position,
+            worldSeed = World.Instance.noiseSeed,
+            lightLevels = lightLevels
+        };
+
+        JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);
+        lightingHandle.Complete();
+
+        // Create and schedule the light propagation job
+        LightPropagationJob propagationJob = new LightPropagationJob
+        {
+            voxels = voxelArray,
+            chunkSize = chunkSize,
+            chunkHeight = chunkHeight,
+            lightLevels = lightLevels
+        };
+
+        JobHandle propagationHandle = propagationJob.Schedule();
+        propagationHandle.Complete();
+
+        // Copy light levels back to voxels
+        for (int i = 0; i < lightLevels.Length; i++)
+        {
+            int x = i % chunkSize;
+            int y = (i / chunkSize) % chunkHeight;
+            int z = i / (chunkSize * chunkHeight);
+            Voxel voxel = voxels.GetVoxel(x, y, z);
+            voxel.lightLevel = lightLevels[i];
+            voxels.SetVoxel(x, y, z, voxel);
+            if (voxel.lightLevel > 0)
+            {
+                MarkBlockModified(x, y, z);
+            }
+        }
+
+        // Clean up
+        lightLevels.Dispose();
+        voxelArray.Dispose();
     }
 
     public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex, Vector3 position, Voxel.VoxelType type)
@@ -856,205 +978,5 @@ public class Chunk : MonoBehaviour
             neighborPos.z = 0;
 
         return neighborPos;
-    }
-
-    public void ResetChunk() {
-        // Clear voxel data
-        voxels.Clear();
-
-        // Clear mesh data
-        vertices.Clear();
-        triangles.Clear();
-        uvs.Clear();
-        colors.Clear();
-
-        // Regenerate voxel data
-        GenerateVoxelData(transform.position);
-    }
-
-    public void UpdateAdjacentFaces(Vector3Int direction)
-    {
-        // Store the current mesh data
-        Vector3[] oldVertices = meshFilter.mesh.vertices;
-        int[] oldTriangles = meshFilter.mesh.triangles;
-        Vector2[] oldUVs = meshFilter.mesh.uv;
-        Color[] oldColors = meshFilter.mesh.colors;
-
-        // Clear lists for new mesh data
-            vertices.Clear();
-            triangles.Clear();
-            uvs.Clear();
-            colors.Clear();
-
-        // Determine which faces to check based on the direction
-        int startX = direction.x == 1 ? chunkSize - 1 : 0;
-        int endX = direction.x == -1 ? 1 : chunkSize;
-        int startY = direction.y == 1 ? chunkHeight - 1 : 0;
-        int endY = direction.y == -1 ? 1 : chunkHeight;
-        int startZ = direction.z == 1 ? chunkSize - 1 : 0;
-        int endZ = direction.z == -1 ? 1 : chunkSize;
-
-        // Create a HashSet to track which vertices we've updated
-        HashSet<int> updatedVertexIndices = new HashSet<int>();
-
-        // Only process voxels on the face that's adjacent to the new chunk
-        for (int y = startY; y < endY; y++)
-        {
-            for (int x = startX; x < endX; x++)
-            {
-                for (int z = startZ; z < endZ; z++)
-                {
-                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
-                    {
-                        ProcessVoxel(x, y, z);
-                    }
-                }
-            }
-        }
-
-        // Create new arrays that combine old and new data
-        List<Vector3> combinedVertices = new List<Vector3>();
-        List<int> combinedTriangles = new List<int>();
-        List<Vector2> combinedUVs = new List<Vector2>();
-        List<Color> combinedColors = new List<Color>();
-
-        // Add all old vertices that weren't updated
-        for (int i = 0; i < oldVertices.Length; i++)
-        {
-            if (!updatedVertexIndices.Contains(i))
-            {
-                combinedVertices.Add(oldVertices[i]);
-                combinedUVs.Add(oldUVs[i]);
-                combinedColors.Add(oldColors[i]);
-            }
-        }
-
-        // Add all new vertices
-        combinedVertices.AddRange(vertices);
-        combinedUVs.AddRange(uvs);
-        combinedColors.AddRange(colors);
-
-        // Update triangle indices to match the new vertex positions
-        for (int i = 0; i < oldTriangles.Length; i++)
-        {
-            if (!updatedVertexIndices.Contains(oldTriangles[i]))
-            {
-                combinedTriangles.Add(oldTriangles[i]);
-            }
-        }
-        combinedTriangles.AddRange(triangles);
-
-        // Update the mesh with the combined data
-        if (combinedVertices.Count > 0)
-        {
-            Mesh mesh = new()
-            {
-                vertices = combinedVertices.ToArray(),
-                triangles = combinedTriangles.ToArray(),
-                uv = combinedUVs.ToArray(),
-                colors = combinedColors.ToArray()
-            };
-
-            mesh.RecalculateNormals();
-            meshFilter.mesh = mesh;
-            meshCollider.sharedMesh = mesh;
-        }
-    }
-
-    public void UpdateVisibility(Camera mainCamera)
-    {
-        if (mainCamera == null) return;
-
-        // Get camera frustum corners
-        mainCamera.CalculateFrustumCorners(
-            new Rect(0, 0, 1, 1),
-            mainCamera.farClipPlane,
-            Camera.MonoOrStereoscopicEye.Mono,
-            frustumCorners
-        );
-
-        // Transform frustum corners to world space
-        for (int i = 0; i < 4; i++)
-        {
-            frustumCorners[i] = mainCamera.transform.TransformPoint(frustumCorners[i]);
-            frustumCorners[i + 4] = mainCamera.transform.TransformPoint(frustumCorners[i + 4]);
-        }
-
-        // Check if chunk bounds intersect with frustum
-        isVisible = GeometryUtility.TestPlanesAABB(
-            GeometryUtility.CalculateFrustumPlanes(mainCamera),
-            new Bounds(transform.position + chunkBounds.center, chunkBounds.size)
-        );
-
-        // Only deactivate/activate the mesh renderer based on visibility
-        meshRenderer.enabled = isVisible;
-    }
-
-    private Color GetBlockColor(Voxel.VoxelType type)
-    {
-        // Store block type in color.r (using the actual enum value)
-        float blockType = (float)type;
-        return new Color(blockType, 0, 0, 1);
-    }
-
-    private void UpdateLighting()
-    {
-        // Create native arrays for the jobs
-        NativeArray<byte> lightLevels = new NativeArray<byte>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-        NativeArray<Voxel> voxelArray = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-
-        // Copy voxel data to native array
-        for (int i = 0; i < voxelArray.Length; i++)
-        {
-            int x = i % chunkSize;
-            int y = (i / chunkSize) % chunkHeight;
-            int z = i / (chunkSize * chunkHeight);
-            voxelArray[i] = voxels.GetVoxel(x, y, z);
-        }
-
-        // Create and schedule the initial lighting job
-        LightingJob lightingJob = new LightingJob
-        {
-            voxels = voxelArray,
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            chunkWorldPosition = transform.position,
-            worldSeed = World.Instance.noiseSeed,
-            lightLevels = lightLevels
-        };
-
-        JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);
-        lightingHandle.Complete();
-
-        // Create and schedule the light propagation job
-        LightPropagationJob propagationJob = new LightPropagationJob
-        {
-            voxels = voxelArray,
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            lightLevels = lightLevels
-        };
-
-        JobHandle propagationHandle = propagationJob.Schedule();
-        propagationHandle.Complete();
-
-        // Copy light levels back to voxels
-        for (int i = 0; i < lightLevels.Length; i++)
-        {
-            int x = i % chunkSize;
-            int y = (i / chunkSize) % chunkHeight;
-            int z = i / (chunkSize * chunkHeight);
-            Voxel voxel = voxels.GetVoxel(x, y, z);
-            voxel.lightLevel = lightLevels[i];
-            voxels.SetVoxel(x, y, z, voxel);
-            if (voxel.lightLevel > 0)
-            {
-                MarkBlockModified(x, y, z);
-            }
-        }
-
-        // Clean up
-        lightLevels.Dispose();
-        voxelArray.Dispose();
     }
 }
