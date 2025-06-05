@@ -228,23 +228,40 @@ public struct GenerateJob : IJobParallelFor
     }
 }
 
-// New job to find minimum height
 [BurstCompile]
-public struct FindMinHeightJob : IJob
+public struct FindMinHeightJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> allHeights;
-    [WriteOnly] public NativeArray<float> minTerrainHeight;
+    [WriteOnly] public NativeArray<float> minHeights; // Array to store intermediate minimums
+
+    public void Execute(int index)
+    {
+        int startIndex = index * 64; // Process 64 elements per thread
+        int endIndex = math.min(startIndex + 64, allHeights.Length);
+        float localMin = float.MaxValue;
+
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            localMin = math.min(localMin, allHeights[i]);
+        }
+
+        minHeights[index] = localMin;
+    }
+}
+
+[BurstCompile]
+public struct FinalizeMinHeightJob : IJob
+{
+    [ReadOnly] public NativeArray<float> minHeights;
+    [WriteOnly] public NativeArray<float> finalMinHeight;
 
     public void Execute()
     {
         float minHeight = float.MaxValue;
-        for (int i = 0; i < allHeights.Length; i++)
+        for (int i = 0; i < minHeights.Length; i++)
         {
-            if (allHeights[i] < minHeight)
-            {
-                minHeight = allHeights[i];
-            }
+            minHeight = math.min(minHeight, minHeights[i]);
         }
-        minTerrainHeight[0] = minHeight-1;
+        finalMinHeight[0] = minHeight - 1; // Subtract 1 as per your previous change
     }
 }

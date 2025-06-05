@@ -60,6 +60,10 @@ public class Chunk : MonoBehaviour
         NativeArray<float> minTerrainHeightArray = new(1, Allocator.TempJob);
         NativeArray<float> allHeightsArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
 
+        // Calculate number of threads needed for parallel reduction
+        int numThreads = (allHeightsArray.Length + 63) / 64; // Round up division
+        NativeArray<float> intermediateMinHeights = new(numThreads, Allocator.TempJob);
+
         GenerateJob generateJob = new()
         {
             heightCurveSamples = curveSamples,
@@ -80,15 +84,25 @@ public class Chunk : MonoBehaviour
         JobHandle generateHandle = generateJob.Schedule(voxelArray.Length, 64);
         generateHandle.Complete();
 
-        // Create and schedule the find minimum height job
+        // Create and schedule the parallel find minimum height job
         FindMinHeightJob findMinJob = new()
         {
             allHeights = allHeightsArray,
-            minTerrainHeight = minTerrainHeightArray
+            minHeights = intermediateMinHeights
         };
 
-        JobHandle findMinHandle = findMinJob.Schedule();
+        JobHandle findMinHandle = findMinJob.Schedule(numThreads, 1);
         findMinHandle.Complete();
+
+        // Create and schedule the finalize minimum height job
+        FinalizeMinHeightJob finalizeJob = new()
+        {
+            minHeights = intermediateMinHeights,
+            finalMinHeight = minTerrainHeightArray
+        };
+
+        JobHandle finalizeHandle = finalizeJob.Schedule();
+        finalizeHandle.Complete();
 
         // Store the minimum terrain height
         minTerrainHeight = minTerrainHeightArray[0];
@@ -111,6 +125,7 @@ public class Chunk : MonoBehaviour
         curveSamples.Dispose();
         minTerrainHeightArray.Dispose();
         allHeightsArray.Dispose();
+        intermediateMinHeights.Dispose();
     }
 
     private Mesh GetMeshFromPool()
