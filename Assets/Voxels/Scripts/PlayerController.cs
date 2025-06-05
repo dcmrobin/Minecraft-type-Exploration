@@ -88,7 +88,7 @@ public class PlayerController : MonoBehaviour
     {
         // Check if the block position is too close to the player
         Vector3 playerPos = transform.position;
-        float minDistance = 1.5f; // Minimum distance to prevent block placement inside player
+        float minDistance = 0.8f; // Reduced from 1.5f to allow closer block placement
 
         return Vector3.Distance(blockPos, playerPos) < minDistance;
     }
