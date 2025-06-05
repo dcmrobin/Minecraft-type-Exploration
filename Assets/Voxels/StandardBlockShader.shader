@@ -124,18 +124,8 @@
 					// Use the block light directly - it's already in 0.1-1.0 range
 					float blockLight = i.color.g;
 					
-					// Debug: Print the block light value to see if it's being overridden
-					// This will show up in the frame debugger
-					#if UNITY_EDITOR
-					if (blockLight > 0.1 && blockLight < 1.0)
-					{
-						col.rgb = float3(blockLight, blockLight, blockLight);
-						return col;
-					}
-					#endif
-					
-					// Combine global and block lighting, but prioritize block light
-					shade = blockLight;
+					// Combine global and block lighting
+					shade = min(shade, blockLight);
 					
 					// Apply ambient occlusion (higher AO value = darker)
 					float ao = 1.0 - (i.color.a * _AOStrength);
