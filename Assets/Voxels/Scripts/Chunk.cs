@@ -15,6 +15,7 @@ public class Chunk : MonoBehaviour
     private AnimationCurve continentalnessCurve;
     private float noiseFrequency;
     private float noiseAmplitude;
+    private float minTerrainHeight;
     private readonly List<Vector3> vertices = new();
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
@@ -56,6 +57,8 @@ public class Chunk : MonoBehaviour
         }
 
         NativeArray<Voxel> voxelArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
+        NativeArray<float> minTerrainHeightArray = new(1, Allocator.TempJob);
+        NativeArray<float> allHeightsArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
 
         GenerateJob generateJob = new()
         {
@@ -68,12 +71,27 @@ public class Chunk : MonoBehaviour
             chunkWorldPosition = chunkWorldPosition,
             voxels = voxelArray,
             randInt = Random.Range(-2, 2),
-            worldSeed = World.Instance.noiseSeed
+            worldSeed = World.Instance.noiseSeed,
+            minTerrainHeight = minTerrainHeightArray,
+            allHeights = allHeightsArray
         };
 
-        // Schedule the job with a batch size of 64 for better performance
-        JobHandle handle = generateJob.Schedule(voxelArray.Length, 64);
-        handle.Complete();
+        // Schedule the generation job
+        JobHandle generateHandle = generateJob.Schedule(voxelArray.Length, 64);
+        generateHandle.Complete();
+
+        // Create and schedule the find minimum height job
+        FindMinHeightJob findMinJob = new()
+        {
+            allHeights = allHeightsArray,
+            minTerrainHeight = minTerrainHeightArray
+        };
+
+        JobHandle findMinHandle = findMinJob.Schedule();
+        findMinHandle.Complete();
+
+        // Store the minimum terrain height
+        minTerrainHeight = minTerrainHeightArray[0];
 
         // Process the results
         for (int i = 0; i < voxelArray.Length; i++)
@@ -91,6 +109,8 @@ public class Chunk : MonoBehaviour
         // Clean up
         voxelArray.Dispose();
         curveSamples.Dispose();
+        minTerrainHeightArray.Dispose();
+        allHeightsArray.Dispose();
     }
 
     private Mesh GetMeshFromPool()
@@ -776,7 +796,8 @@ public class Chunk : MonoBehaviour
             chunkHeight = chunkHeight,
             chunkWorldPosition = transform.position,
             worldSeed = World.Instance.noiseSeed,
-            lightLevels = lightLevels
+            lightLevels = lightLevels,
+            minTerrainHeight = minTerrainHeight
         };
 
         JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);

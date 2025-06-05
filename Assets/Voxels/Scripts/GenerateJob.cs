@@ -10,6 +10,7 @@ public struct LightingJob : IJobParallelFor
     [ReadOnly] public int chunkHeight;
     [ReadOnly] public Vector3 chunkWorldPosition;
     [ReadOnly] public int worldSeed;
+    [ReadOnly] public float minTerrainHeight;
 
     [WriteOnly] public NativeArray<byte> lightLevels;
 
@@ -26,20 +27,27 @@ public struct LightingJob : IJobParallelFor
             return;
         }
 
+        // Calculate world position of the voxel
+        float worldY = chunkWorldPosition.y + y;
+
         // Check if block is exposed to sky
-        bool isExposedToSky = true;
+        bool isExposedToSky = worldY >= minTerrainHeight;
         int checkY = y + 1;
 
-        // Check blocks in current chunk
-        while (checkY < chunkHeight)
+        // Only check blocks above if we're at or above the minimum terrain height
+        if (isExposedToSky)
         {
-            int checkIndex = x + (checkY * chunkSize) + (z * chunkSize * chunkHeight);
-            if (voxels[checkIndex].type != Voxel.VoxelType.Air)
+            // Check blocks in current chunk
+            while (checkY < chunkHeight)
             {
-                isExposedToSky = false;
-                break;
+                int checkIndex = x + (checkY * chunkSize) + (z * chunkSize * chunkHeight);
+                if (voxels[checkIndex].type != Voxel.VoxelType.Air)
+                {
+                    isExposedToSky = false;
+                    break;
+                }
+                checkY++;
             }
-            checkY++;
         }
 
         // If exposed to sky, set initial light level
@@ -143,6 +151,8 @@ public struct GenerateJob : IJobParallelFor
     [ReadOnly] public int worldSeed;
 
     [WriteOnly] public NativeArray<Voxel> voxels;
+    [WriteOnly] public NativeArray<float> minTerrainHeight;
+    [WriteOnly] public NativeArray<float> allHeights; // New array to store all calculated heights
 
     public void Execute(int index)
     {
@@ -158,6 +168,9 @@ public struct GenerateJob : IJobParallelFor
 
         int sampleIndex = Mathf.Clamp(Mathf.RoundToInt(perlinHeight * (heightCurveSamples.Length - 1)), 0, heightCurveSamples.Length - 1);
         float calculatedHeight = heightCurveSamples[sampleIndex] * amplitude;
+
+        // Store the calculated height in the array
+        allHeights[index] = calculatedHeight;
 
         Voxel.VoxelType type = DetermineVoxelType(voxelChunkPos, calculatedHeight, chunkWorldPosition, useVerticalChunks, randInt, worldSeed);
         voxels[index] = new Voxel(type, type != Voxel.VoxelType.Air);
@@ -206,5 +219,25 @@ public struct GenerateJob : IJobParallelFor
             type = Voxel.VoxelType.Deepslate;
 
         return type;
+    }
+}
+
+// New job to find minimum height
+public struct FindMinHeightJob : IJob
+{
+    [ReadOnly] public NativeArray<float> allHeights;
+    [WriteOnly] public NativeArray<float> minTerrainHeight;
+
+    public void Execute()
+    {
+        float minHeight = float.MaxValue;
+        for (int i = 0; i < allHeights.Length; i++)
+        {
+            if (allHeights[i] < minHeight)
+            {
+                minHeight = allHeights[i];
+            }
+        }
+        minTerrainHeight[0] = minHeight-1;
     }
 }
