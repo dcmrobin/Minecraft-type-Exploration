@@ -265,3 +265,246 @@ public struct FinalizeMinHeightJob : IJob
         finalMinHeight[0] = minHeight - 1; // Subtract 1 as per your previous change
     }
 }
+
+[BurstCompile]
+public struct AmbientOcclusionJob : IJobParallelFor
+{
+    [ReadOnly] public NativeArray<Voxel> voxels;
+    [ReadOnly] public int chunkSize;
+    [ReadOnly] public int chunkHeight;
+    [WriteOnly] public NativeArray<float> aoValues;
+
+    public void Execute(int index)
+    {
+        int x = index % chunkSize;
+        int y = (index % (chunkSize * chunkHeight)) / chunkSize;
+        int z = index / (chunkSize * chunkHeight);
+
+        // Calculate AO for each face
+        for (int face = 0; face < 6; face++)
+        {
+            float aoValue = CalculateAOForFace(x, y, z, face);
+            aoValues[index * 6 + face] = aoValue;
+        }
+    }
+
+    private float CalculateAOForFace(int x, int y, int z, int face)
+    {
+        int sides = 0;
+        int corners = 0;
+
+        switch (face)
+        {
+            case 0: // Top Face
+                if (IsVoxelSolid(x - 1, y + 1, z)) sides++;
+                if (IsVoxelSolid(x + 1, y + 1, z)) sides++;
+                if (IsVoxelSolid(x, y + 1, z - 1)) sides++;
+                if (IsVoxelSolid(x, y + 1, z + 1)) sides++;
+
+                if (IsVoxelSolid(x - 1, y + 1, z - 1)) corners++;
+                if (IsVoxelSolid(x + 1, y + 1, z - 1)) corners++;
+                if (IsVoxelSolid(x - 1, y + 1, z + 1)) corners++;
+                if (IsVoxelSolid(x + 1, y + 1, z + 1)) corners++;
+                break;
+
+            case 1: // Bottom Face
+                if (IsVoxelSolid(x - 1, y - 1, z)) sides++;
+                if (IsVoxelSolid(x + 1, y - 1, z)) sides++;
+                if (IsVoxelSolid(x, y - 1, z - 1)) sides++;
+                if (IsVoxelSolid(x, y - 1, z + 1)) sides++;
+
+                if (IsVoxelSolid(x - 1, y - 1, z - 1)) corners++;
+                if (IsVoxelSolid(x + 1, y - 1, z - 1)) corners++;
+                if (IsVoxelSolid(x - 1, y - 1, z + 1)) corners++;
+                if (IsVoxelSolid(x + 1, y - 1, z + 1)) corners++;
+                break;
+
+            // Add cases for other faces...
+        }
+
+        return (sides * 0.2f) + (corners * 0.1f);
+    }
+
+    private bool IsVoxelSolid(int x, int y, int z)
+    {
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
+            return false;
+
+        int index = x + (y * chunkSize) + (z * chunkSize * chunkHeight);
+        return voxels[index].type != Voxel.VoxelType.Air;
+    }
+}
+
+[BurstCompile]
+public struct GreedyMeshJob : IJobParallelFor
+{
+    [ReadOnly] public NativeArray<Voxel> voxels;
+    [ReadOnly] public NativeArray<float> aoValues;
+    [ReadOnly] public int chunkSize;
+    [ReadOnly] public int chunkHeight;
+    [WriteOnly] public NativeArray<Vector3> vertices;
+    [WriteOnly] public NativeArray<int> triangles;
+    [WriteOnly] public NativeArray<Color> colors;
+    [WriteOnly] public NativeArray<int> vertexCount;
+
+    public void Execute(int y)
+    {
+        // Pre-allocate arrays for this layer
+        NativeArray<bool> topMask = new NativeArray<bool>(chunkSize * chunkSize, Allocator.Temp);
+        NativeArray<bool> bottomMask = new NativeArray<bool>(chunkSize * chunkSize, Allocator.Temp);
+        NativeArray<Voxel.VoxelType> topTypes = new NativeArray<Voxel.VoxelType>(chunkSize * chunkSize, Allocator.Temp);
+        NativeArray<Voxel.VoxelType> bottomTypes = new NativeArray<Voxel.VoxelType>(chunkSize * chunkSize, Allocator.Temp);
+
+        // Create masks for this layer
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                int index = x + (y * chunkSize) + (z * chunkSize * chunkHeight);
+                int maskIndex = x + (z * chunkSize);
+                Voxel voxel = voxels[index];
+                
+                if (voxel.type != Voxel.VoxelType.Air)
+                {
+                    // Check top face
+                    if (IsVoxelHidden(x, y + 1, z))
+                    {
+                        topMask[maskIndex] = true;
+                        topTypes[maskIndex] = voxel.type;
+                    }
+
+                    // Check bottom face
+                    if (IsVoxelHidden(x, y - 1, z))
+                    {
+                        bottomMask[maskIndex] = true;
+                        bottomTypes[maskIndex] = voxel.type;
+                    }
+                }
+            }
+        }
+
+        // Process top and bottom faces
+        ProcessFaceMask(y, true, topMask, topTypes);
+        ProcessFaceMask(y, false, bottomMask, bottomTypes);
+
+        // Clean up
+        topMask.Dispose();
+        bottomMask.Dispose();
+        topTypes.Dispose();
+        bottomTypes.Dispose();
+    }
+
+    private void ProcessFaceMask(int y, bool isTop, NativeArray<bool> mask, NativeArray<Voxel.VoxelType> types)
+    {
+        for (int x = 0; x < chunkSize; x++)
+        {
+            for (int z = 0; z < chunkSize; z++)
+            {
+                int maskIndex = x + (z * chunkSize);
+                if (!mask[maskIndex]) continue;
+
+                Voxel.VoxelType type = types[maskIndex];
+                int width = 1;
+                int height = 1;
+
+                // Find width
+                while (x + width < chunkSize && mask[maskIndex + width] && types[maskIndex + width] == type)
+                {
+                    width++;
+                }
+
+                // Find height
+                bool canExpand = true;
+                while (canExpand && z + height < chunkSize)
+                {
+                    for (int i = 0; i < width; i++)
+                    {
+                        int checkIndex = (x + i) + ((z + height) * chunkSize);
+                        if (!mask[checkIndex] || types[checkIndex] != type)
+                        {
+                            canExpand = false;
+                            break;
+                        }
+                    }
+                    if (canExpand) height++;
+                }
+
+                // Add quad
+                AddQuad(new Vector3(x, y, z), width, height, isTop ? 0 : 1, type);
+
+                // Clear the mask for this rectangle
+                for (int i = 0; i < width; i++)
+                {
+                    for (int j = 0; j < height; j++)
+                    {
+                        mask[(x + i) + ((z + j) * chunkSize)] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    private void AddQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
+    {
+        int vertCount = vertexCount[0];
+        float vertexAO0 = 0f;
+        float vertexAO1 = 0f;
+        float vertexAO2 = 0f;
+        float vertexAO3 = 0f;
+
+        // Add vertices based on face
+        switch (faceIndex)
+        {
+            case 0: // Top
+                vertices[vertCount] = new Vector3(position.x, position.y + 1, position.z);
+                vertices[vertCount + 1] = new Vector3(position.x, position.y + 1, position.z + height);
+                vertices[vertCount + 2] = new Vector3(position.x + width, position.y + 1, position.z + height);
+                vertices[vertCount + 3] = new Vector3(position.x + width, position.y + 1, position.z);
+                break;
+            case 1: // Bottom
+                vertices[vertCount] = new Vector3(position.x, position.y, position.z);
+                vertices[vertCount + 1] = new Vector3(position.x + width, position.y, position.z);
+                vertices[vertCount + 2] = new Vector3(position.x + width, position.y, position.z + height);
+                vertices[vertCount + 3] = new Vector3(position.x, position.y, position.z + height);
+                break;
+        }
+
+        // Add colors with AO
+        Color color = GetBlockColor(type);
+        color.a = vertexAO0;
+        colors[vertCount] = color;
+        color.a = vertexAO1;
+        colors[vertCount + 1] = color;
+        color.a = vertexAO2;
+        colors[vertCount + 2] = color;
+        color.a = vertexAO3;
+        colors[vertCount + 3] = color;
+
+        // Add triangles
+        int triCount = vertexCount[0] * 6;
+        triangles[triCount] = vertCount;
+        triangles[triCount + 1] = vertCount + 1;
+        triangles[triCount + 2] = vertCount + 2;
+        triangles[triCount + 3] = vertCount;
+        triangles[triCount + 4] = vertCount + 2;
+        triangles[triCount + 5] = vertCount + 3;
+
+        // Update vertex count
+        vertexCount[0] += 4;
+    }
+
+    private bool IsVoxelHidden(int x, int y, int z)
+    {
+        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
+            return true;
+
+        int index = x + (y * chunkSize) + (z * chunkSize * chunkHeight);
+        return voxels[index].type == Voxel.VoxelType.Air;
+    }
+
+    private Color GetBlockColor(Voxel.VoxelType type)
+    {
+        float blockType = (float)type;
+        return new Color(blockType, 0, 0, 1);
+    }
+}
