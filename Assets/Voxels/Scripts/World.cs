@@ -41,22 +41,6 @@ public class World : MonoBehaviour
     private float cullingUpdateInterval = 0.1f; // Update culling every 0.1 seconds
     private float lastCullingUpdate;
 
-    private class ChunkLoadRequest
-    {
-        public Vector3Int position;
-        public float priority;
-        public float distance;
-
-        public ChunkLoadRequest(Vector3Int pos, float pri, float dist)
-        {
-            position = pos;
-            priority = pri;
-            distance = dist;
-        }
-    }
-
-    private List<ChunkLoadRequest> prioritizedChunkQueue = new List<ChunkLoadRequest>();
-
     void Awake()
     {
         if (Instance == null)
@@ -175,133 +159,51 @@ public class World : MonoBehaviour
 
     private void LoadChunksAround(Vector3Int centerChunkPos)
     {
-        prioritizedChunkQueue.Clear();
-        Vector3 playerPos = player.position;
-        Vector3 cameraForward = mainCamera.transform.forward;
+        chunkLoadQueue.Clear();
 
-        if (useVerticalChunks)
+        // Spiral generation from center outward
+        int maxDistance = renderDistance;
+        int currentDistance = 0;
+
+        // Start with the center chunk
+        Vector3Int centerPos = centerChunkPos;
+        if (!chunks.ContainsKey(centerPos) && IsChunkPotentiallyVisible(centerPos))
         {
-            int maxDistance = renderDistance;
-            for (int distance = 0; distance <= maxDistance; distance++)
-            {
-                for (int y = distance; y >= -distance; y--)
-                {
-                    for (int x = -distance; x <= distance; x++)
-                    {
-                        for (int z = -distance; z <= distance; z++)
-                        {
-                            if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z)) == distance)
-                            {
-                                Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
-                                
-                                // Skip if chunk already exists or is in queue
-                                if (chunks.ContainsKey(chunkPos) || chunkLoadQueue.Contains(chunkPos))
-                                    continue;
-
-                                // Skip if chunk is not potentially visible
-                                if (!IsChunkPotentiallyVisible(chunkPos))
-                                    continue;
-
-                                // Calculate chunk center in world space
-                                Vector3 chunkCenter = new Vector3(
-                                    chunkPos.x * chunkSize + chunkSize / 2f,
-                                    chunkPos.y * chunkHeight + chunkHeight / 2f,
-                                    chunkPos.z * chunkSize + chunkSize / 2f
-                                );
-
-                                // Calculate distance to player
-                                float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
-
-                                // Calculate dot product with camera forward
-                                Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
-                                float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
-
-                                // Skip chunks that are too far behind the player
-                                if (dotProduct < -0.5f) // Chunks more than 120 degrees behind the player
-                                    continue;
-
-                                // Calculate priority
-                                float priority = 0;
-                                
-                                // Higher priority for chunks in front of the player
-                                priority += dotProduct * 2f;
-                                
-                                // Higher priority for closer chunks
-                                priority += 1f / (distToPlayer + 1f);
-                                
-                                // Higher priority for chunks at player's level
-                                float heightDiff = Mathf.Abs(chunkCenter.y - playerPos.y);
-                                priority += 1f / (heightDiff + 1f);
-
-                                prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
-                            }
-                        }
-                    }
-                }
-            }
+            chunkLoadQueue.Enqueue(centerPos);
         }
-        else
+
+        // Spiral outward
+        while (currentDistance < maxDistance)
         {
-            int maxDistance = renderDistance;
-            for (int distance = 0; distance <= maxDistance; distance++)
+            currentDistance++;
+            
+            // Generate chunks in a cube shell at current distance
+            for (int x = -currentDistance; x <= currentDistance; x++)
             {
-                for (int x = -distance; x <= distance; x++)
+                for (int y = -currentDistance; y <= currentDistance; y++)
                 {
-                    for (int z = -distance; z <= distance; z++)
+                    for (int z = -currentDistance; z <= currentDistance; z++)
                     {
-                        if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(z)) == distance)
+                        // Only process chunks on the outer shell of the cube
+                        if (Mathf.Abs(x) == currentDistance || 
+                            Mathf.Abs(y) == currentDistance || 
+                            Mathf.Abs(z) == currentDistance)
                         {
-                            Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, 0, z);
+                            Vector3Int chunkPos = centerChunkPos + new Vector3Int(x, y, z);
                             
-                            // Skip if chunk already exists or is in queue
-                            if (chunks.ContainsKey(chunkPos) || chunkLoadQueue.Contains(chunkPos))
+                            // Skip if chunk already exists
+                            if (chunks.ContainsKey(chunkPos))
                                 continue;
 
                             // Skip if chunk is not potentially visible
                             if (!IsChunkPotentiallyVisible(chunkPos))
                                 continue;
 
-                            // Calculate chunk center in world space
-                            Vector3 chunkCenter = new Vector3(
-                                chunkPos.x * chunkSize + chunkSize / 2f,
-                                chunkPos.y * chunkHeight + chunkHeight / 2f,
-                                chunkPos.z * chunkSize + chunkSize / 2f
-                            );
-
-                            // Calculate distance to player
-                            float distToPlayer = Vector3.Distance(playerPos, chunkCenter);
-
-                            // Calculate dot product with camera forward
-                            Vector3 dirToChunk = (chunkCenter - playerPos).normalized;
-                            float dotProduct = Vector3.Dot(cameraForward, dirToChunk);
-
-                            // Skip chunks that are too far behind the player
-                            if (dotProduct < -0.5f) // Chunks more than 120 degrees behind the player
-                                continue;
-
-                            // Calculate priority
-                            float priority = 0;
-                            
-                            // Higher priority for chunks in front of the player
-                            priority += dotProduct * 2f;
-                            
-                            // Higher priority for closer chunks
-                            priority += 1f / (distToPlayer + 1f);
-
-                            prioritizedChunkQueue.Add(new ChunkLoadRequest(chunkPos, priority, distToPlayer));
+                            chunkLoadQueue.Enqueue(chunkPos);
                         }
                     }
                 }
             }
-        }
-
-        // Sort chunks by priority
-        prioritizedChunkQueue.Sort((a, b) => b.priority.CompareTo(a.priority));
-
-        // Add sorted chunks to the load queue
-        foreach (var request in prioritizedChunkQueue)
-        {
-            chunkLoadQueue.Enqueue(request.position);
         }
     }
 
