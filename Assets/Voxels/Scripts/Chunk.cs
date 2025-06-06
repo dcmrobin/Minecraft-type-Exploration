@@ -36,6 +36,7 @@ public class Chunk : MonoBehaviour
     private HashSet<Vector3Int> modifiedBlocks = new HashSet<Vector3Int>();
 
     private Dictionary<Vector3Int, float> aoCache = new Dictionary<Vector3Int, float>();
+    private Dictionary<Vector3Int, Chunk> neighborChunkCache = new Dictionary<Vector3Int, Chunk>();
 
     private void Awake() {
         pos = transform.position;
@@ -183,8 +184,9 @@ public class Chunk : MonoBehaviour
             return;
         }
 
-        // Clear the AO cache before generating a new mesh
+        // Clear the AO cache and neighbor chunk cache before generating a new mesh
         ClearAOCache();
+        neighborChunkCache.Clear();
         
         vertices.Clear();
         triangles.Clear();
@@ -192,19 +194,48 @@ public class Chunk : MonoBehaviour
 
         // Pre-calculate all AO values for the entire chunk
         float[,,,] aoValues = new float[chunkSize + 1, chunkHeight + 1, chunkSize + 1, 6]; // 6 faces per block
+        
+        // First pass: identify visible faces and cache neighbor chunks
         for (int y = 0; y < chunkHeight; y++)
         {
             for (int x = 0; x < chunkSize; x++)
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    // Calculate AO for each face of each block
-                    aoValues[x, y, z, 0] = CalculateAO(x, y, z, true);  // Top
-                    aoValues[x, y, z, 1] = CalculateAO(x, y, z, false); // Bottom
-                    aoValues[x, y, z, 2] = CalculateAO(x, y, z, false); // Left
-                    aoValues[x, y, z, 3] = CalculateAO(x, y, z, false); // Right
-                    aoValues[x, y, z, 4] = CalculateAO(x, y, z, false); // Front
-                    aoValues[x, y, z, 5] = CalculateAO(x, y, z, false); // Back
+                    Voxel voxel = voxels.GetVoxel(x, y, z);
+                    if (voxel.type != Voxel.VoxelType.Air)
+                    {
+                        // Check each face and cache neighbor chunks if needed
+                        CheckAndCacheNeighborChunks(x, y, z);
+                    }
+                }
+            }
+        }
+
+        // Second pass: calculate AO only for visible faces
+        for (int y = 0; y < chunkHeight; y++)
+        {
+            for (int x = 0; x < chunkSize; x++)
+            {
+                for (int z = 0; z < chunkSize; z++)
+                {
+                    Voxel voxel = voxels.GetVoxel(x, y, z);
+                    if (voxel.type != Voxel.VoxelType.Air)
+                    {
+                        // Calculate AO for each face if it's visible
+                        if (IsVoxelHiddenInChunk(x, y + 1, z))
+                            aoValues[x, y, z, 0] = CalculateAO(x, y, z, true);  // Top
+                        if (IsVoxelHiddenInChunk(x, y - 1, z))
+                            aoValues[x, y, z, 1] = CalculateAO(x, y, z, false); // Bottom
+                        if (IsVoxelHiddenInChunk(x - 1, y, z))
+                            aoValues[x, y, z, 2] = CalculateAO(x, y, z, false); // Left
+                        if (IsVoxelHiddenInChunk(x + 1, y, z))
+                            aoValues[x, y, z, 3] = CalculateAO(x, y, z, false); // Right
+                        if (IsVoxelHiddenInChunk(x, y, z + 1))
+                            aoValues[x, y, z, 4] = CalculateAO(x, y, z, false); // Front
+                        if (IsVoxelHiddenInChunk(x, y, z - 1))
+                            aoValues[x, y, z, 5] = CalculateAO(x, y, z, false); // Back
+                    }
                 }
             }
         }
@@ -859,17 +890,15 @@ public class Chunk : MonoBehaviour
             // Get the world position of the neighboring voxel
             Vector3 worldPos = transform.position + new Vector3(x, y, z);
             Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
-            Vector3Int localPos = new Vector3Int(
-                Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
-                Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
-                Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
-            );
-
-            // Get the neighboring chunk
-            Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
-            if (neighborChunk != null)
+            
+            // Use cached chunk if available
+            if (neighborChunkCache.TryGetValue(neighborChunkPos, out Chunk neighborChunk))
             {
-                // Check if the neighboring voxel is solid
+                Vector3Int localPos = new Vector3Int(
+                    Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
+                    Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
+                    Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
+                );
                 return neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type == Voxel.VoxelType.Air;
             }
             return true; // If no neighboring chunk exists, consider it hidden
@@ -917,30 +946,30 @@ public class Chunk : MonoBehaviour
         if (isTop)
         {
             // For top face, check blocks above the corners
-            if (IsVoxelSolid(x - 1, y + 1, z)) sides++;
-            if (IsVoxelSolid(x + 1, y + 1, z)) sides++;
-            if (IsVoxelSolid(x, y + 1, z - 1)) sides++;
-            if (IsVoxelSolid(x, y + 1, z + 1)) sides++;
+            if (IsVoxelSolidWithCache(x - 1, y + 1, z)) sides++;
+            if (IsVoxelSolidWithCache(x + 1, y + 1, z)) sides++;
+            if (IsVoxelSolidWithCache(x, y + 1, z - 1)) sides++;
+            if (IsVoxelSolidWithCache(x, y + 1, z + 1)) sides++;
 
             // Check corner blocks
-            if (IsVoxelSolid(x - 1, y + 1, z - 1)) corners++;
-            if (IsVoxelSolid(x + 1, y + 1, z - 1)) corners++;
-            if (IsVoxelSolid(x - 1, y + 1, z + 1)) corners++;
-            if (IsVoxelSolid(x + 1, y + 1, z + 1)) corners++;
+            if (IsVoxelSolidWithCache(x - 1, y + 1, z - 1)) corners++;
+            if (IsVoxelSolidWithCache(x + 1, y + 1, z - 1)) corners++;
+            if (IsVoxelSolidWithCache(x - 1, y + 1, z + 1)) corners++;
+            if (IsVoxelSolidWithCache(x + 1, y + 1, z + 1)) corners++;
         }
         else
         {
             // For side faces, check blocks adjacent to the face
-            if (IsVoxelSolid(x - 1, y, z)) sides++;
-            if (IsVoxelSolid(x + 1, y, z)) sides++;
-            if (IsVoxelSolid(x, y - 1, z)) sides++;
-            if (IsVoxelSolid(x, y + 1, z)) sides++;
+            if (IsVoxelSolidWithCache(x - 1, y, z)) sides++;
+            if (IsVoxelSolidWithCache(x + 1, y, z)) sides++;
+            if (IsVoxelSolidWithCache(x, y - 1, z)) sides++;
+            if (IsVoxelSolidWithCache(x, y + 1, z)) sides++;
 
             // Check corner blocks
-            if (IsVoxelSolid(x - 1, y - 1, z)) corners++;
-            if (IsVoxelSolid(x + 1, y - 1, z)) corners++;
-            if (IsVoxelSolid(x - 1, y + 1, z)) corners++;
-            if (IsVoxelSolid(x + 1, y + 1, z)) corners++;
+            if (IsVoxelSolidWithCache(x - 1, y - 1, z)) corners++;
+            if (IsVoxelSolidWithCache(x + 1, y - 1, z)) corners++;
+            if (IsVoxelSolidWithCache(x - 1, y + 1, z)) corners++;
+            if (IsVoxelSolidWithCache(x + 1, y + 1, z)) corners++;
         }
 
         // Calculate final AO value
@@ -955,7 +984,7 @@ public class Chunk : MonoBehaviour
         return aoValue;
     }
 
-    private bool IsVoxelSolid(int x, int y, int z)
+    private bool IsVoxelSolidWithCache(int x, int y, int z)
     {
         // Check if the position is in a neighboring chunk
         if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
@@ -963,20 +992,18 @@ public class Chunk : MonoBehaviour
             // Get the world position of the neighboring voxel
             Vector3 worldPos = transform.position + new Vector3(x, y, z);
             Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
-            Vector3Int localPos = new Vector3Int(
-                Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
-                Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
-                Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
-            );
-
-            // Get the neighboring chunk
-            Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
-            if (neighborChunk != null)
+            
+            // Use cached chunk if available
+            if (neighborChunkCache.TryGetValue(neighborChunkPos, out Chunk neighborChunk))
             {
-                // Check if the neighboring voxel is solid
+                Vector3Int localPos = new Vector3Int(
+                    Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
+                    Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
+                    Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
+                );
                 return neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type != Voxel.VoxelType.Air;
             }
-            return false; // If no neighboring chunk exists, consider it not solid
+            return false;
         }
 
         // For positions within this chunk, check if the voxel is solid
@@ -1070,6 +1097,36 @@ public class Chunk : MonoBehaviour
                     for (int j = 0; j < height; j++)
                     {
                         mask[x + i, z + j] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    private void CheckAndCacheNeighborChunks(int x, int y, int z)
+    {
+        // Check all 6 directions
+        int[] dx = { -1, 1, 0, 0, 0, 0 };
+        int[] dy = { 0, 0, -1, 1, 0, 0 };
+        int[] dz = { 0, 0, 0, 0, -1, 1 };
+
+        for (int i = 0; i < 6; i++)
+        {
+            int nx = x + dx[i];
+            int ny = y + dy[i];
+            int nz = z + dz[i];
+
+            if (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkHeight || nz < 0 || nz >= chunkSize)
+            {
+                Vector3 worldPos = transform.position + new Vector3(nx, ny, nz);
+                Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
+                
+                if (!neighborChunkCache.ContainsKey(neighborChunkPos))
+                {
+                    Chunk neighborChunk = World.Instance.GetChunkAt(neighborChunkPos);
+                    if (neighborChunk != null)
+                    {
+                        neighborChunkCache[neighborChunkPos] = neighborChunk;
                     }
                 }
             }
