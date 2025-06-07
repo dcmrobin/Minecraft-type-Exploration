@@ -354,6 +354,8 @@ public struct GreedyMeshJob : IJobParallelFor
         NativeArray<bool> bottomMask = new NativeArray<bool>(chunkSize * chunkSize, Allocator.Temp);
         NativeArray<Voxel.VoxelType> topTypes = new NativeArray<Voxel.VoxelType>(chunkSize * chunkSize, Allocator.Temp);
         NativeArray<Voxel.VoxelType> bottomTypes = new NativeArray<Voxel.VoxelType>(chunkSize * chunkSize, Allocator.Temp);
+        NativeArray<byte> topLightLevels = new NativeArray<byte>(chunkSize * chunkSize, Allocator.Temp);
+        NativeArray<byte> bottomLightLevels = new NativeArray<byte>(chunkSize * chunkSize, Allocator.Temp);
 
         // Create masks for this layer
         for (int x = 0; x < chunkSize; x++)
@@ -371,6 +373,7 @@ public struct GreedyMeshJob : IJobParallelFor
                     {
                         topMask[maskIndex] = true;
                         topTypes[maskIndex] = voxel.type;
+                        topLightLevels[maskIndex] = voxel.lightLevel;
                     }
 
                     // Check bottom face
@@ -378,23 +381,26 @@ public struct GreedyMeshJob : IJobParallelFor
                     {
                         bottomMask[maskIndex] = true;
                         bottomTypes[maskIndex] = voxel.type;
+                        bottomLightLevels[maskIndex] = voxel.lightLevel;
                     }
                 }
             }
         }
 
         // Process top and bottom faces
-        ProcessFaceMask(y, true, topMask, topTypes);
-        ProcessFaceMask(y, false, bottomMask, bottomTypes);
+        ProcessFaceMask(y, true, topMask, topTypes, topLightLevels);
+        ProcessFaceMask(y, false, bottomMask, bottomTypes, bottomLightLevels);
 
         // Clean up
         topMask.Dispose();
         bottomMask.Dispose();
         topTypes.Dispose();
         bottomTypes.Dispose();
+        topLightLevels.Dispose();
+        bottomLightLevels.Dispose();
     }
 
-    private void ProcessFaceMask(int y, bool isTop, NativeArray<bool> mask, NativeArray<Voxel.VoxelType> types)
+    private void ProcessFaceMask(int y, bool isTop, NativeArray<bool> mask, NativeArray<Voxel.VoxelType> types, NativeArray<byte> lightLevels)
     {
         for (int x = 0; x < chunkSize; x++)
         {
@@ -404,11 +410,14 @@ public struct GreedyMeshJob : IJobParallelFor
                 if (!mask[maskIndex]) continue;
 
                 Voxel.VoxelType type = types[maskIndex];
+                byte lightLevel = lightLevels[maskIndex];
                 int width = 1;
                 int height = 1;
 
                 // Find width
-                while (x + width < chunkSize && mask[maskIndex + width] && types[maskIndex + width] == type)
+                while (x + width < chunkSize && mask[maskIndex + width] && 
+                       types[maskIndex + width] == type && 
+                       lightLevels[maskIndex + width] == lightLevel)
                 {
                     width++;
                 }
@@ -420,7 +429,9 @@ public struct GreedyMeshJob : IJobParallelFor
                     for (int i = 0; i < width; i++)
                     {
                         int checkIndex = (x + i) + ((z + height) * chunkSize);
-                        if (!mask[checkIndex] || types[checkIndex] != type)
+                        if (!mask[checkIndex] || 
+                            types[checkIndex] != type || 
+                            lightLevels[checkIndex] != lightLevel)
                         {
                             canExpand = false;
                             break;
@@ -430,7 +441,7 @@ public struct GreedyMeshJob : IJobParallelFor
                 }
 
                 // Add quad
-                AddQuad(new Vector3(x, y, z), width, height, isTop ? 0 : 1, type);
+                AddQuad(new Vector3(x, y, z), width, height, isTop ? 0 : 1, type, lightLevel);
 
                 // Clear the mask for this rectangle
                 for (int i = 0; i < width; i++)
@@ -444,7 +455,7 @@ public struct GreedyMeshJob : IJobParallelFor
         }
     }
 
-    private void AddQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
+    private void AddQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type, byte lightLevel)
     {
         int vertCount = vertexCount[0];
         float vertexAO0 = 0f;
@@ -469,14 +480,21 @@ public struct GreedyMeshJob : IJobParallelFor
                 break;
         }
 
-        // Add colors with AO
+        // Add colors with AO and lighting
         Color color = GetBlockColor(type);
+        // Convert light level (0-15) to color intensity (0.1-1.0)
+        float lightIntensity = 0.1f + (lightLevel / 15.0f * 0.9f);
+        
         color.a = vertexAO0;
+        color.g = lightIntensity;
         colors[vertCount] = color;
+        
         color.a = vertexAO1;
         colors[vertCount + 1] = color;
+        
         color.a = vertexAO2;
         colors[vertCount + 2] = color;
+        
         color.a = vertexAO3;
         colors[vertCount + 3] = color;
 
