@@ -27,7 +27,7 @@ public class World : MonoBehaviour
     public float noiseAmplitude = 30;
     public Material VoxelMaterial;
     public int renderDistance = 5;
-    public int safetyRadius = 2; // Chunks within this radius will always be generated
+    public int safetyRadius = 4; // Chunks within this radius will always be generated
     public float[,] noiseArray;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
