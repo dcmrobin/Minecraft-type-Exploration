@@ -35,7 +35,6 @@ public class Chunk : MonoBehaviour
     private bool needsFullRegeneration = true;
     private HashSet<Vector3Int> modifiedBlocks = new HashSet<Vector3Int>();
 
-    private Dictionary<Vector3Int, float> aoCache = new Dictionary<Vector3Int, float>();
     private Dictionary<Vector3Int, Chunk> neighborChunkCache = new Dictionary<Vector3Int, Chunk>();
 
     private void Awake() {
@@ -184,17 +183,13 @@ public class Chunk : MonoBehaviour
             return;
         }
 
-        // Clear the AO cache and neighbor chunk cache before generating a new mesh
-        ClearAOCache();
+        // Clear the neighbor chunk cache before generating a new mesh
         neighborChunkCache.Clear();
         
         vertices.Clear();
         triangles.Clear();
         colors.Clear();
 
-        // Pre-calculate all AO values for the entire chunk
-        float[,,,] aoValues = new float[chunkSize + 1, chunkHeight + 1, chunkSize + 1, 6]; // 6 faces per block
-        
         // First pass: identify visible faces and cache neighbor chunks
         for (int y = 0; y < chunkHeight; y++)
         {
@@ -207,34 +202,6 @@ public class Chunk : MonoBehaviour
                     {
                         // Check each face and cache neighbor chunks if needed
                         CheckAndCacheNeighborChunks(x, y, z);
-                    }
-                }
-            }
-        }
-
-        // Second pass: calculate AO only for visible faces
-        for (int y = 0; y < chunkHeight; y++)
-        {
-            for (int x = 0; x < chunkSize; x++)
-            {
-                for (int z = 0; z < chunkSize; z++)
-                {
-                    Voxel voxel = voxels.GetVoxel(x, y, z);
-                    if (voxel.type != Voxel.VoxelType.Air)
-                    {
-                        // Calculate AO for each face if it's visible
-                        if (IsVoxelHiddenInChunk(x, y + 1, z))
-                            aoValues[x, y, z, 0] = CalculateAO(x, y, z, true);  // Top
-                        if (IsVoxelHiddenInChunk(x, y - 1, z))
-                            aoValues[x, y, z, 1] = CalculateAO(x, y, z, false); // Bottom
-                        if (IsVoxelHiddenInChunk(x - 1, y, z))
-                            aoValues[x, y, z, 2] = CalculateAO(x, y, z, false); // Left
-                        if (IsVoxelHiddenInChunk(x + 1, y, z))
-                            aoValues[x, y, z, 3] = CalculateAO(x, y, z, false); // Right
-                        if (IsVoxelHiddenInChunk(x, y, z + 1))
-                            aoValues[x, y, z, 4] = CalculateAO(x, y, z, false); // Front
-                        if (IsVoxelHiddenInChunk(x, y, z - 1))
-                            aoValues[x, y, z, 5] = CalculateAO(x, y, z, false); // Back
                     }
                 }
             }
@@ -274,24 +241,24 @@ public class Chunk : MonoBehaviour
             }
 
             // Greedy meshing for top faces
-            GreedyMeshLayer(y, true, topMask, topTypes, aoValues);
+            GreedyMeshLayer(y, true, topMask, topTypes);
             // Greedy meshing for bottom faces
-            GreedyMeshLayer(y, false, bottomMask, bottomTypes, aoValues);
+            GreedyMeshLayer(y, false, bottomMask, bottomTypes);
         }
 
         // Process side faces with greedy meshing
         // Left and right faces
         for (int x = 0; x < chunkSize; x++)
         {
-            GreedyMeshSlice(x, true, true, aoValues);  // Right face
-            GreedyMeshSlice(x, true, false, aoValues); // Left face
+            GreedyMeshSlice(x, true, true);  // Right face
+            GreedyMeshSlice(x, true, false); // Left face
         }
 
         // Front and back faces
         for (int z = 0; z < chunkSize; z++)
         {
-            GreedyMeshSlice(z, false, true, aoValues);  // Front face
-            GreedyMeshSlice(z, false, false, aoValues); // Back face
+            GreedyMeshSlice(z, false, true);  // Front face
+            GreedyMeshSlice(z, false, false); // Back face
         }
 
         // Early exit if no vertices were generated
@@ -380,7 +347,7 @@ public class Chunk : MonoBehaviour
         MarkBlockModified(x, y, z);
     }
 
-    private void GreedyMeshSlice(int slice, bool isX, bool isPositive, float[,,,] aoValues)
+    private void GreedyMeshSlice(int slice, bool isX, bool isPositive)
     {
         bool[,] mask = new bool[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
         Voxel.VoxelType[,] types = new Voxel.VoxelType[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
@@ -450,16 +417,16 @@ public class Chunk : MonoBehaviour
                 if (isX)
                 {
                     if (isPositive)
-                        AddGreedyQuad(pos, height, width, 3, type, aoValues); // Right face
+                        AddGreedyQuad(pos, height, width, 3, type); // Right face
                     else
-                        AddGreedyQuad(pos, height, width, 2, type, aoValues); // Left face
+                        AddGreedyQuad(pos, height, width, 2, type); // Left face
                 }
                 else
                 {
                     if (isPositive)
-                        AddGreedyQuad(pos, width, height, 4, type, aoValues); // Front face
+                        AddGreedyQuad(pos, width, height, 4, type); // Front face
                     else
-                        AddGreedyQuad(pos, width, height, 5, type, aoValues); // Back face
+                        AddGreedyQuad(pos, width, height, 5, type); // Back face
                 }
 
                 // Clear the mask for this rectangle
@@ -474,12 +441,11 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type, float[,,,] preCalculatedAO)
+    private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
     {
         int vertCount = vertices.Count;
-        float[] vertexAO = new float[4];
 
-        // Calculate ambient occlusion for each vertex
+        // Add vertices based on face
         switch (faceIndex)
         {
             case 0: // Top Face
@@ -487,80 +453,43 @@ public class Chunk : MonoBehaviour
                 vertices.Add(new Vector3(position.x, position.y + 1, position.z + height));
                 vertices.Add(new Vector3(position.x + width, position.y + 1, position.z + height));
                 vertices.Add(new Vector3(position.x + width, position.y + 1, position.z));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z, 0];
-                vertexAO[1] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z + height, 0];
-                vertexAO[2] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z + height, 0];
-                vertexAO[3] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z, 0];
                 break;
             case 1: // Bottom Face
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y, position.z + height));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z, 1];
-                vertexAO[1] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z, 1];
-                vertexAO[2] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z + height, 1];
-                vertexAO[3] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z + height, 1];
                 break;
             case 2: // Left Face
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y + width, position.z + height));
                 vertices.Add(new Vector3(position.x, position.y + width, position.z));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z, 2];
-                vertexAO[1] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z + height, 2];
-                vertexAO[2] = preCalculatedAO[(int)position.x, (int)position.y + width, (int)position.z + height, 2];
-                vertexAO[3] = preCalculatedAO[(int)position.x, (int)position.y + width, (int)position.z, 2];
                 break;
             case 3: // Right Face
                 vertices.Add(new Vector3(position.x + 1, position.y, position.z + height));
                 vertices.Add(new Vector3(position.x + 1, position.y, position.z));
                 vertices.Add(new Vector3(position.x + 1, position.y + width, position.z));
                 vertices.Add(new Vector3(position.x + 1, position.y + width, position.z + height));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x + 1, (int)position.y, (int)position.z + height, 3];
-                vertexAO[1] = preCalculatedAO[(int)position.x + 1, (int)position.y, (int)position.z, 3];
-                vertexAO[2] = preCalculatedAO[(int)position.x + 1, (int)position.y + width, (int)position.z, 3];
-                vertexAO[3] = preCalculatedAO[(int)position.x + 1, (int)position.y + width, (int)position.z + height, 3];
                 break;
             case 4: // Front Face
                 vertices.Add(new Vector3(position.x, position.y, position.z + 1));
                 vertices.Add(new Vector3(position.x + width, position.y, position.z + 1));
                 vertices.Add(new Vector3(position.x + width, position.y + height, position.z + 1));
                 vertices.Add(new Vector3(position.x, position.y + height, position.z + 1));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z + 1, 4];
-                vertexAO[1] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z + 1, 4];
-                vertexAO[2] = preCalculatedAO[(int)position.x + width, (int)position.y + height, (int)position.z + 1, 4];
-                vertexAO[3] = preCalculatedAO[(int)position.x, (int)position.y + height, (int)position.z + 1, 4];
                 break;
             case 5: // Back Face
                 vertices.Add(new Vector3(position.x + width, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y, position.z));
                 vertices.Add(new Vector3(position.x, position.y + height, position.z));
                 vertices.Add(new Vector3(position.x + width, position.y + height, position.z));
-                
-                // Use pre-calculated AO values
-                vertexAO[0] = preCalculatedAO[(int)position.x + width, (int)position.y, (int)position.z, 5];
-                vertexAO[1] = preCalculatedAO[(int)position.x, (int)position.y, (int)position.z, 5];
-                vertexAO[2] = preCalculatedAO[(int)position.x, (int)position.y + height, (int)position.z, 5];
-                vertexAO[3] = preCalculatedAO[(int)position.x + width, (int)position.y + height, (int)position.z, 5];
                 break;
         }
 
-        // Add colors with AO values and light levels
+        // Add colors with light levels
         for (int i = 0; i < 4; i++)
         {
             Color color = GetBlockColor(type);
-            color.a = vertexAO[i];
             
             // Get light level from the block itself
             int x = (int)position.x;
@@ -585,7 +514,7 @@ public class Chunk : MonoBehaviour
 
     private void ClearAOCache()
     {
-        aoCache.Clear();
+        // Removed AO cache
     }
 
     public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
@@ -957,80 +886,7 @@ public class Chunk : MonoBehaviour
         return neighborPos;
     }
 
-    private float CalculateAO(int x, int y, int z, bool isTop)
-    {
-        // Check adjacent blocks (weight: 0.2)
-        int sides = 0;
-        int corners = 0;
-
-        if (isTop)
-        {
-            // For top face, check blocks above the corners
-            if (IsVoxelSolidWithCache(x - 1, y + 1, z)) sides++;
-            if (IsVoxelSolidWithCache(x + 1, y + 1, z)) sides++;
-            if (IsVoxelSolidWithCache(x, y + 1, z - 1)) sides++;
-            if (IsVoxelSolidWithCache(x, y + 1, z + 1)) sides++;
-
-            // Check corner blocks
-            if (IsVoxelSolidWithCache(x - 1, y + 1, z - 1)) corners++;
-            if (IsVoxelSolidWithCache(x + 1, y + 1, z - 1)) corners++;
-            if (IsVoxelSolidWithCache(x - 1, y + 1, z + 1)) corners++;
-            if (IsVoxelSolidWithCache(x + 1, y + 1, z + 1)) corners++;
-        }
-        else
-        {
-            // For side faces, check blocks adjacent to the face
-            if (IsVoxelSolidWithCache(x - 1, y, z)) sides++;
-            if (IsVoxelSolidWithCache(x + 1, y, z)) sides++;
-            if (IsVoxelSolidWithCache(x, y - 1, z)) sides++;
-            if (IsVoxelSolidWithCache(x, y + 1, z)) sides++;
-
-            // Check corner blocks
-            if (IsVoxelSolidWithCache(x - 1, y - 1, z)) corners++;
-            if (IsVoxelSolidWithCache(x + 1, y - 1, z)) corners++;
-            if (IsVoxelSolidWithCache(x - 1, y + 1, z)) corners++;
-            if (IsVoxelSolidWithCache(x + 1, y + 1, z)) corners++;
-        }
-
-        // Calculate final AO value
-        float aoValue = (sides * 0.2f) + (corners * 0.1f);
-        
-        // If there are no adjacent blocks, return 0 (no occlusion)
-        if (sides == 0 && corners == 0)
-        {
-            return 0;
-        }
-
-        return aoValue;
-    }
-
-    private bool IsVoxelSolidWithCache(int x, int y, int z)
-    {
-        // Check if the position is in a neighboring chunk
-        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize)
-        {
-            // Get the world position of the neighboring voxel
-            Vector3 worldPos = transform.position + new Vector3(x, y, z);
-            Vector3Int neighborChunkPos = World.Instance.GetChunkPosition(worldPos);
-            
-            // Use cached chunk if available
-            if (neighborChunkCache.TryGetValue(neighborChunkPos, out Chunk neighborChunk))
-            {
-                Vector3Int localPos = new Vector3Int(
-                    Mathf.FloorToInt(worldPos.x) - (neighborChunkPos.x * chunkSize),
-                    Mathf.FloorToInt(worldPos.y) - (neighborChunkPos.y * chunkHeight),
-                    Mathf.FloorToInt(worldPos.z) - (neighborChunkPos.z * chunkSize)
-                );
-                return neighborChunk.voxels.GetVoxel(localPos.x, localPos.y, localPos.z).type != Voxel.VoxelType.Air;
-            }
-            return false;
-        }
-
-        // For positions within this chunk, check if the voxel is solid
-        return voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air;
-    }
-
-    private void GreedyMeshLayer(int y, bool isTop, bool[,] mask, Voxel.VoxelType[,] types, float[,,,] aoValues)
+    private void GreedyMeshLayer(int y, bool isTop, bool[,] mask, Voxel.VoxelType[,] types)
     {
         // Greedy meshing
         for (int x = 0; x < chunkSize; x++)
@@ -1043,30 +899,9 @@ public class Chunk : MonoBehaviour
                 int width = 1;
                 int height = 1;
 
-                // Get initial AO values for the current face
-                float[] initialAO = new float[4];
-                int faceIndex = isTop ? 0 : 1;
-                initialAO[0] = aoValues[x, y, z, faceIndex];
-                initialAO[1] = aoValues[x, y, z + 1, faceIndex];
-                initialAO[2] = aoValues[x + 1, y, z + 1, faceIndex];
-                initialAO[3] = aoValues[x + 1, y, z, faceIndex];
-
                 // Find width
                 while (x + width < chunkSize && mask[x + width, z] && types[x + width, z] == type)
                 {
-                    // Check if the next face would have different AO values
-                    float[] rightAO = new float[4];
-                    rightAO[0] = aoValues[x + width, y, z, faceIndex];
-                    rightAO[1] = aoValues[x + width, y, z + 1, faceIndex];
-                    rightAO[2] = aoValues[x + width + 1, y, z + 1, faceIndex];
-                    rightAO[3] = aoValues[x + width + 1, y, z, faceIndex];
-
-                    // Don't merge if any AO values are different
-                    if (rightAO[0] != initialAO[0] || rightAO[1] != initialAO[1] ||
-                        rightAO[2] != initialAO[2] || rightAO[3] != initialAO[3])
-                    {
-                        break;
-                    }
                     width++;
                 }
 
@@ -1081,21 +916,6 @@ public class Chunk : MonoBehaviour
                             canExpand = false;
                             break;
                         }
-
-                        // Check if the next face would have different AO values
-                        float[] topAO = new float[4];
-                        topAO[0] = aoValues[x + i, y, z + height, faceIndex];
-                        topAO[1] = aoValues[x + i, y, z + height + 1, faceIndex];
-                        topAO[2] = aoValues[x + i + 1, y, z + height + 1, faceIndex];
-                        topAO[3] = aoValues[x + i + 1, y, z + height, faceIndex];
-
-                        // Don't merge if any AO values are different
-                        if (topAO[0] != initialAO[0] || topAO[1] != initialAO[1] ||
-                            topAO[2] != initialAO[2] || topAO[3] != initialAO[3])
-                        {
-                            canExpand = false;
-                            break;
-                        }
                     }
                     if (canExpand) height++;
                 }
@@ -1104,11 +924,11 @@ public class Chunk : MonoBehaviour
                 Vector3 pos = new Vector3(x, y, z);
                 if (isTop)
                 {
-                    AddGreedyQuad(pos, width, height, 0, type, aoValues); // Top face
+                    AddGreedyQuad(pos, width, height, 0, type); // Top face
                 }
                 else
                 {
-                    AddGreedyQuad(pos, width, height, 1, type, aoValues); // Bottom face
+                    AddGreedyQuad(pos, width, height, 1, type); // Bottom face
                 }
 
                 // Clear the mask for this rectangle

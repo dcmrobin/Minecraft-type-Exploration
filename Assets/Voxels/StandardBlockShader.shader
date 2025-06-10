@@ -3,7 +3,6 @@
 	Properties {
 		_MainTex ("Block Texture Atlas", 2D) = "white" {}
 		_TextureScale ("Texture Scale", Float) = 0.25
-		_AOStrength ("Ambient Occlusion Strength", Range(0, 1)) = 0.5
 	}
 
 	SubShader {
@@ -37,7 +36,6 @@
 				sampler2D _MainTex;
 				float4 _MainTex_ST;
 				float _TextureScale;
-				float _AOStrength;
 				float GlobalLightLevel;
 				float minGlobalLightLevel;
 				float maxGlobalLightLevel;
@@ -118,7 +116,7 @@
 					// Sample the texture
 					fixed4 col = tex2D(_MainTex, uv);
 
-					// Apply lighting and ambient occlusion
+					// Apply lighting
 					float shade = (maxGlobalLightLevel - minGlobalLightLevel) * GlobalLightLevel + minGlobalLightLevel;
 					
 					// Use the block light directly - it's already in 0.1-1.0 range
@@ -126,10 +124,6 @@
 					
 					// Combine global and block lighting
 					shade = min(shade, blockLight);
-					
-					// Apply ambient occlusion (higher AO value = darker)
-					float ao = 1.0 - (i.color.a * _AOStrength);
-					col.rgb *= ao;
 
 					clip(col.a - 1);
 					// Apply lighting (higher shade = brighter)
