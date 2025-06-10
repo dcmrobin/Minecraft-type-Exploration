@@ -27,6 +27,7 @@ public class World : MonoBehaviour
     public float noiseAmplitude = 30;
     public Material VoxelMaterial;
     public int renderDistance = 5;
+    public int safetyRadius = 2; // Chunks within this radius will always be generated
     public float[,] noiseArray;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
@@ -161,13 +162,21 @@ public class World : MonoBehaviour
     {
         chunkLoadQueue.Clear();
 
+        // Get player's forward direction in chunk coordinates
+        Vector3 playerForward = player.forward;
+        Vector3Int forwardDir = new Vector3Int(
+            Mathf.RoundToInt(playerForward.x),
+            Mathf.RoundToInt(playerForward.y),
+            Mathf.RoundToInt(playerForward.z)
+        );
+
         // Spiral generation from center outward
         int maxDistance = renderDistance;
         int currentDistance = 0;
 
         // Start with the center chunk
         Vector3Int centerPos = centerChunkPos;
-        if (!chunks.ContainsKey(centerPos) && IsChunkPotentiallyVisible(centerPos))
+        if (!chunks.ContainsKey(centerPos))
         {
             chunkLoadQueue.Enqueue(centerPos);
         }
@@ -195,11 +204,25 @@ public class World : MonoBehaviour
                             if (chunks.ContainsKey(chunkPos))
                                 continue;
 
-                            // Skip if chunk is not potentially visible
-                            if (!IsChunkPotentiallyVisible(chunkPos))
-                                continue;
+                            // Calculate distance from center
+                            float distanceFromCenter = Vector3Int.Distance(chunkPos, centerChunkPos);
 
-                            chunkLoadQueue.Enqueue(chunkPos);
+                            // Always generate chunks within safety radius
+                            if (distanceFromCenter <= safetyRadius)
+                            {
+                                chunkLoadQueue.Enqueue(chunkPos);
+                                continue;
+                            }
+
+                            // For chunks outside safety radius, only generate if they're in front of the player
+                            Vector3Int relativePos = chunkPos - centerChunkPos;
+                            float dotProduct = Vector3.Dot(new Vector3(relativePos.x, relativePos.y, relativePos.z), playerForward);
+
+                            // Only generate chunks that are in front of the player (dot product > 0)
+                            if (dotProduct > 0)
+                            {
+                                chunkLoadQueue.Enqueue(chunkPos);
+                            }
                         }
                     }
                 }
@@ -231,7 +254,18 @@ public class World : MonoBehaviour
 
         foreach (var chunk in chunks)
         {
-            if (Vector3Int.Distance(chunk.Key, centerChunkPos) > renderDistance)
+            float distance = Vector3Int.Distance(chunk.Key, centerChunkPos);
+            
+            // Don't unload chunks within safety radius
+            if (distance <= safetyRadius)
+                continue;
+
+            // For chunks outside safety radius, check if they're behind the player
+            Vector3Int relativePos = chunk.Key - centerChunkPos;
+            float dotProduct = Vector3.Dot(new Vector3(relativePos.x, relativePos.y, relativePos.z), player.forward);
+
+            // Unload chunks that are behind the player and beyond render distance
+            if (dotProduct < 0 && distance > renderDistance)
             {
                 chunksToUnload.Add(chunk.Key);
             }
