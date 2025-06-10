@@ -123,7 +123,44 @@ public class World : MonoBehaviour
         {
             if (chunk != null)
             {
-                chunk.UpdateVisibility(mainCamera);
+                // Check if chunk is in view
+                bool isInView = GeometryUtility.TestPlanesAABB(
+                    GeometryUtility.CalculateFrustumPlanes(mainCamera),
+                    new Bounds(chunk.transform.position + chunk.chunkBounds.center, chunk.chunkBounds.size)
+                );
+
+                // Calculate distance from player
+                float distanceFromPlayer = Vector3.Distance(
+                    chunk.transform.position,
+                    player.position
+                );
+
+                // Always keep chunks within safety radius active
+                if (distanceFromPlayer <= safetyRadius * chunkSize)
+                {
+                    chunk.ActivateMesh();
+                    continue;
+                }
+
+                // For chunks outside safety radius, only activate if they're in view and in front of player
+                if (isInView)
+                {
+                    Vector3 toChunk = chunk.transform.position - player.position;
+                    float dotProduct = Vector3.Dot(toChunk.normalized, player.forward);
+
+                    if (dotProduct > 0)
+                    {
+                        chunk.ActivateMesh();
+                    }
+                    else
+                    {
+                        chunk.DeactivateMesh();
+                    }
+                }
+                else
+                {
+                    chunk.DeactivateMesh();
+                }
             }
         }
     }

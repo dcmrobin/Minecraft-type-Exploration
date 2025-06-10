@@ -27,7 +27,7 @@ public class Chunk : MonoBehaviour
     public Vector3 pos;
 
     private bool isVisible = true;
-    private Bounds chunkBounds;
+    public Bounds chunkBounds;
     private static readonly Vector3[] frustumCorners = new Vector3[8];
 
     private static readonly Queue<Mesh> meshPool = new Queue<Mesh>();
@@ -612,9 +612,29 @@ public class Chunk : MonoBehaviour
             new Vector3(chunkSize, chunkHeight, chunkSize)
         );
 
+        // Initially disable the mesh renderer
+        meshRenderer.enabled = false;
+
+        // Generate data and mesh on the main thread for now
         GenerateVoxelData(transform.position);
-        UpdateLighting(); // Add lighting calculation
-        GenerateFullMesh(); // Generate the initial mesh
+        UpdateLighting();
+        GenerateFullMesh();
+    }
+
+    public void ActivateMesh()
+    {
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = true;
+        }
+    }
+
+    public void DeactivateMesh()
+    {
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = false;
+        }
     }
 
     public void ResetChunk() {
