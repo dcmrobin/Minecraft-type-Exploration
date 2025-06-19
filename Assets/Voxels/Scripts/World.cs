@@ -16,27 +16,20 @@ public class World : MonoBehaviour
     public static float maxLightDistance = 16f; // Maximum light propagation distance
 
     [Header("World")]
-    public AnimationCurve continentalnessCurve;
     public int chunksPerFrame = 5; // Number of chunks to load per frame
     public bool useVerticalChunks = true;
     public int worldSize = 5; 
     public int chunkSize = 16;
     public int chunkHeight = 16;
-    public float maxHeight = 0.2f;
-    public float noiseFrequency = 50f;
-    public float noiseAmplitude = 30;
     public Material VoxelMaterial;
     public int renderDistance = 5;
     public int safetyRadius = 4; // Chunks within this radius will always be generated
-    public float[,] noiseArray;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
     private Queue<Vector3Int> chunkLoadQueue = new Queue<Vector3Int>();
     private Transform player;
     private Vector3Int lastPlayerChunkPos;
     public static World Instance { get; private set; }
-    public string noiseSeedString;
-    [HideInInspector] public int noiseSeed;
 
     private Camera mainCamera;
     private float cullingUpdateInterval = 0.1f; // Update culling every 0.1 seconds
@@ -65,14 +58,6 @@ public class World : MonoBehaviour
             mainCamera.allowHDR = false; // Disable HDR for better performance
             mainCamera.allowMSAA = false; // Disable MSAA for better performance
         }
-
-        string noEmptySpacesNoiseSeed = noiseSeedString.Replace(" ", string.Empty);
-        if (noEmptySpacesNoiseSeed == string.Empty)
-        {
-            noEmptySpacesNoiseSeed = Random.Range(0, 10000000).ToString();
-            noiseSeedString = noEmptySpacesNoiseSeed;
-        }
-        noiseSeed = System.Convert.ToInt32(noEmptySpacesNoiseSeed);
 
         player = FindObjectOfType<PlayerController>().transform;
         lastPlayerChunkPos = GetChunkPosition(player.position);
@@ -271,12 +256,17 @@ public class World : MonoBehaviour
     {
         if (chunks.ContainsKey(chunkPos)) return;
 
+        // Generate chunk data using the new pipeline (to be implemented)
+        OptimizedVoxelStorage generatedVoxels = ChunkGenerationPipeline.GenerateChunk(
+            chunkPos, chunkSize, chunkHeight, this
+        );
+
         GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}_{chunkPos.z}");
         chunkObj.transform.parent = transform;
         chunkObj.transform.position = new Vector3(chunkPos.x * chunkSize, chunkPos.y * chunkHeight, chunkPos.z * chunkSize);
 
         Chunk chunk = chunkObj.AddComponent<Chunk>();
-        chunk.Initialize(chunkSize, chunkHeight, continentalnessCurve);
+        chunk.Initialize(chunkSize, chunkHeight, generatedVoxels);
         chunks[chunkPos] = chunk;
     }
 

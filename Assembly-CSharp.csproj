@@ -89,6 +89,7 @@
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Voxel.cs" />
     <Compile Include="Assets\Voxels\Scripts\Structures.cs" />
     <Compile Include="Assets\FastNoise Unity\Demo Scenes\Misc\MouseOrbit.cs" />
+    <Compile Include="Assets\Voxels\Scripts\ChunkGenerationPipeline.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\Util\Vector3i.cs" />
     <Compile Include="Assets\FastNoise Unity\Voxel Engine\TerrainGenerators\TerrainGeneratorSIMD_Caves.cs" />
     <Compile Include="Assets\Voxels\Scripts\GenerateJob.cs" />

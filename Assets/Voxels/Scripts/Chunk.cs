@@ -46,88 +46,6 @@ public class Chunk : MonoBehaviour
         );
     }
 
-    private void GenerateVoxelData(Vector3 chunkWorldPosition)
-    {
-        int sampleCount = 100;
-        NativeArray<float> curveSamples = new(sampleCount, Allocator.TempJob);
-        for (int i = 0; i < sampleCount; i++)
-        {
-            float t = i / (float)(sampleCount - 1);
-            curveSamples[i] = continentalnessCurve.Evaluate(t);
-        }
-
-        NativeArray<Voxel> voxelArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-        NativeArray<float> minTerrainHeightArray = new(1, Allocator.TempJob);
-        NativeArray<float> allHeightsArray = new(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-
-        // Calculate number of threads needed for parallel reduction
-        int numThreads = (allHeightsArray.Length + 63) / 64; // Round up division
-        NativeArray<float> intermediateMinHeights = new(numThreads, Allocator.TempJob);
-
-        GenerateJob generateJob = new()
-        {
-            heightCurveSamples = curveSamples,
-            useVerticalChunks = World.Instance.useVerticalChunks,
-            chunkHeight = chunkHeight,
-            chunkSize = chunkSize,
-            frequency = noiseFrequency,
-            amplitude = noiseAmplitude,
-            chunkWorldPosition = chunkWorldPosition,
-            voxels = voxelArray,
-            randInt = Random.Range(-2, 2),
-            worldSeed = World.Instance.noiseSeed,
-            minTerrainHeight = minTerrainHeightArray,
-            allHeights = allHeightsArray
-        };
-
-        // Schedule the generation job
-        JobHandle generateHandle = generateJob.Schedule(voxelArray.Length, 64);
-        generateHandle.Complete();
-
-        // Create and schedule the parallel find minimum height job
-        FindMinHeightJob findMinJob = new()
-        {
-            allHeights = allHeightsArray,
-            minHeights = intermediateMinHeights
-        };
-
-        JobHandle findMinHandle = findMinJob.Schedule(numThreads, 1);
-        findMinHandle.Complete();
-
-        // Create and schedule the finalize minimum height job
-        FinalizeMinHeightJob finalizeJob = new()
-        {
-            minHeights = intermediateMinHeights,
-            finalMinHeight = minTerrainHeightArray
-        };
-
-        JobHandle finalizeHandle = finalizeJob.Schedule();
-        finalizeHandle.Complete();
-
-        // Store the minimum terrain height
-        minTerrainHeight = minTerrainHeightArray[0];
-
-        // Process the results
-        for (int i = 0; i < voxelArray.Length; i++)
-        {
-            int x = i % chunkSize;
-            int y = (i / chunkSize) % chunkHeight;
-            int z = i / (chunkSize * chunkHeight);
-            Voxel voxel = voxelArray[i];
-            if (voxel.type != Voxel.VoxelType.Air)
-            {
-                voxels.SetVoxel(x, y, z, voxel);
-            }
-        }
-
-        // Clean up
-        voxelArray.Dispose();
-        curveSamples.Dispose();
-        minTerrainHeightArray.Dispose();
-        allHeightsArray.Dispose();
-        intermediateMinHeights.Dispose();
-    }
-
     private Mesh GetMeshFromPool()
     {
         if (meshPool.Count > 0)
@@ -517,15 +435,12 @@ public class Chunk : MonoBehaviour
         // Removed AO cache
     }
 
-    public void Initialize(int size, int height, AnimationCurve continentalnessCurve)
+    // New Initialize method for pre-generated voxel data (no terrain params)
+    public void Initialize(int size, int height, OptimizedVoxelStorage preGeneratedVoxels)
     {
         chunkSize = size;
         chunkHeight = height;
-        this.continentalnessCurve = continentalnessCurve;
-        noiseFrequency = World.Instance.noiseFrequency;
-        noiseAmplitude = World.Instance.noiseAmplitude;
-
-        voxels = new OptimizedVoxelStorage(chunkSize, chunkHeight);
+        voxels = preGeneratedVoxels;
         meshFilter = gameObject.AddComponent<MeshFilter>();
         meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshCollider = gameObject.AddComponent<MeshCollider>();
@@ -544,8 +459,7 @@ public class Chunk : MonoBehaviour
         // Initially disable the mesh renderer
         meshRenderer.enabled = false;
 
-        // Generate data and mesh on the main thread for now
-        GenerateVoxelData(transform.position);
+        // Only update lighting and mesh, do not generate voxel data here
         UpdateLighting();
         GenerateFullMesh();
     }
@@ -577,7 +491,7 @@ public class Chunk : MonoBehaviour
         colors.Clear();
 
         // Regenerate voxel data
-        GenerateVoxelData(transform.position);
+        GenerateFullMesh();
     }
 
     public void UpdateAdjacentFaces(Vector3Int direction)
@@ -682,7 +596,6 @@ public class Chunk : MonoBehaviour
             chunkSize = chunkSize,
             chunkHeight = chunkHeight,
             chunkWorldPosition = transform.position,
-            worldSeed = World.Instance.noiseSeed,
             lightLevels = lightLevels,
             minTerrainHeight = minTerrainHeight
         };
