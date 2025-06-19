@@ -18,7 +18,6 @@ public struct LightingJob : IJobParallelFor
     [ReadOnly] public int chunkHeight;
     [ReadOnly] public Vector3 chunkWorldPosition;
     [ReadOnly] public int worldSeed;
-    [ReadOnly] public float minTerrainHeight;
 
     [WriteOnly] public NativeArray<byte> lightLevels;
 
@@ -38,24 +37,18 @@ public struct LightingJob : IJobParallelFor
         // Calculate world position of the voxel
         float worldY = chunkWorldPosition.y + y;
 
-        // Check if block is exposed to sky
-        bool isExposedToSky = worldY >= minTerrainHeight;
+        // Check if block is exposed to sky (no minTerrainHeight check)
+        bool isExposedToSky = true;
         int checkY = y + 1;
-
-        // Only check blocks above if we're at or above the minimum terrain height
-        if (isExposedToSky)
+        while (checkY < chunkHeight)
         {
-            // Check blocks in current chunk
-            while (checkY < chunkHeight)
+            int checkIndex = x + (checkY * chunkSize) + (z * chunkSize * chunkHeight);
+            if (voxels[checkIndex].type != Voxel.VoxelType.Air)
             {
-                int checkIndex = x + (checkY * chunkSize) + (z * chunkSize * chunkHeight);
-                if (voxels[checkIndex].type != Voxel.VoxelType.Air)
-                {
-                    isExposedToSky = false;
-                    break;
-                }
-                checkY++;
+                isExposedToSky = false;
+                break;
             }
+            checkY++;
         }
 
         // If exposed to sky, set initial light level

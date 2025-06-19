@@ -596,8 +596,7 @@ public class Chunk : MonoBehaviour
             chunkSize = chunkSize,
             chunkHeight = chunkHeight,
             chunkWorldPosition = transform.position,
-            lightLevels = lightLevels,
-            minTerrainHeight = minTerrainHeight
+            lightLevels = lightLevels
         };
 
         JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);
