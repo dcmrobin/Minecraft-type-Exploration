@@ -460,7 +460,6 @@ public class Chunk : MonoBehaviour
         meshRenderer.enabled = false;
 
         // Only update lighting and mesh, do not generate voxel data here
-        UpdateLighting();
         GenerateFullMesh();
     }
 
@@ -574,70 +573,11 @@ public class Chunk : MonoBehaviour
         return new Color(blockType, 0, 0, 1);
     }
 
-    private void UpdateLighting()
-    {
-        // Create native arrays for the jobs
-        NativeArray<byte> lightLevels = new NativeArray<byte>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-        NativeArray<Voxel> voxelArray = new NativeArray<Voxel>(chunkSize * chunkHeight * chunkSize, Allocator.TempJob);
-
-        // Copy voxel data to native array
-        for (int i = 0; i < voxelArray.Length; i++)
-        {
-            int x = i % chunkSize;
-            int y = (i / chunkSize) % chunkHeight;
-            int z = i / (chunkSize * chunkHeight);
-            voxelArray[i] = voxels.GetVoxel(x, y, z);
-        }
-
-        // Create and schedule the initial lighting job
-        LightingJob lightingJob = new LightingJob
-        {
-            voxels = voxelArray,
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            chunkWorldPosition = transform.position,
-            lightLevels = lightLevels
-        };
-
-        JobHandle lightingHandle = lightingJob.Schedule(voxelArray.Length, 64);
-        lightingHandle.Complete();
-
-        // Create and schedule the light propagation job
-        LightPropagationJob propagationJob = new LightPropagationJob
-        {
-            voxels = voxelArray,
-            chunkSize = chunkSize,
-            chunkHeight = chunkHeight,
-            lightLevels = lightLevels
-        };
-
-        JobHandle propagationHandle = propagationJob.Schedule();
-        propagationHandle.Complete();
-
-        // Copy light levels back to voxels
-        for (int i = 0; i < lightLevels.Length; i++)
-        {
-            int x = i % chunkSize;
-            int y = (i / chunkSize) % chunkHeight;
-            int z = i / (chunkSize * chunkHeight);
-            Voxel voxel = voxels.GetVoxel(x, y, z);
-            voxel.lightLevel = lightLevels[i];
-            voxels.SetVoxel(x, y, z, voxel);
-            if (voxel.lightLevel > 0)
-            {
-                MarkBlockModified(x, y, z);
-            }
-        }
-
-        // Clean up
-        lightLevels.Dispose();
-        voxelArray.Dispose();
-    }
-
     public void AddFaceData(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, List<Color> colors, int faceIndex, Vector3 position, Voxel.VoxelType type)
     {
         Vector2[] faceUVs = GetFaceUVs(type, faceIndex);
 
+        // Add vertices for the face
         switch (faceIndex)
         {
             case 0: // Top Face
@@ -678,9 +618,17 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
+        // Set color for each vertex based on voxel at the face position
         for (int i = 0; i < 4; i++)
         {
-            colors.Add(new Color(0, 0, 0, 1));
+            // For each vertex, get the voxel at the face's origin
+            int vx = Mathf.FloorToInt(position.x);
+            int vy = Mathf.FloorToInt(position.y);
+            int vz = Mathf.FloorToInt(position.z);
+            Voxel voxel = voxels.GetVoxel(vx, vy, vz);
+            float blockType = (float)voxel.type;
+            float lightLevel = voxel.lightLevel / 15.0f;
+            colors.Add(new Color(blockType, lightLevel, 0, 1));
         }
         uvs.AddRange(faceUVs);
 

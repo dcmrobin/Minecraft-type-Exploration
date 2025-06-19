@@ -77,4 +77,15 @@ public class OptimizedVoxelStorage
         get => GetVoxel(x, y, z);
         set => SetVoxel(x, y, z, value);
     }
+
+    // Deep clone for deterministic pipeline snapshots
+    public OptimizedVoxelStorage Clone()
+    {
+        var copy = new OptimizedVoxelStorage(chunkSize, chunkHeight);
+        foreach (var kvp in voxelMap)
+        {
+            copy.voxelMap[kvp.Key] = kvp.Value;
+        }
+        return copy;
+    }
 } 

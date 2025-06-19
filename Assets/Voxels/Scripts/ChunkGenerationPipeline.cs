@@ -14,22 +14,74 @@ public interface IChunkGenerationStage
 
 public static class ChunkGenerationPipeline
 {
-    // Terrain shaping and topsoil stages
     private static List<IChunkGenerationStage> stages = new List<IChunkGenerationStage> {
         new TerrainShapingStage(),
-        new TopsoilStage()
+        new TopsoilStage(),
+        new LightingStage()
     };
+
+    // In-memory snapshot cache for a single pipeline run
+    private class SnapshotCache
+    {
+        // [stageIndex][chunkPos] = snapshot
+        public List<Dictionary<Vector3Int, OptimizedVoxelStorage>> stageSnapshots = new();
+    }
 
     public static OptimizedVoxelStorage GenerateChunk(
         Vector3Int chunkPos, int chunkSize, int chunkHeight, World world)
     {
-        OptimizedVoxelStorage current = new OptimizedVoxelStorage(chunkSize, chunkHeight);
-        foreach (var stage in stages)
+        var cache = new SnapshotCache();
+        for (int i = 0; i < stages.Count; i++)
+            cache.stageSnapshots.Add(new Dictionary<Vector3Int, OptimizedVoxelStorage>());
+        return GenerateStage(chunkPos, 0, chunkSize, chunkHeight, world, cache);
+    }
+
+    // Recursively generate a chunk up to the given stage, using the cache
+    private static OptimizedVoxelStorage GenerateStage(
+        Vector3Int chunkPos, int stageIndex, int chunkSize, int chunkHeight, World world, SnapshotCache cache)
+    {
+        if (cache.stageSnapshots[stageIndex].TryGetValue(chunkPos, out var snapshot))
+            return snapshot;
+
+        OptimizedVoxelStorage input;
+        if (stageIndex == 0)
         {
-            Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots = new();
-            stage.Generate(chunkPos, current, neighborSnapshots, world);
+            input = new OptimizedVoxelStorage(chunkSize, chunkHeight);
         }
-        return current;
+        else
+        {
+            input = GenerateStage(chunkPos, stageIndex - 1, chunkSize, chunkHeight, world, cache).Clone();
+        }
+
+        // Gather neighbor snapshots for this stage
+        var stage = stages[stageIndex];
+        var neighborSnapshots = new Dictionary<Vector3Int, OptimizedVoxelStorage>();
+        int border = stage.BorderSize;
+        if (border > 0)
+        {
+            for (int dx = -border; dx <= border; dx++)
+            for (int dy = -border; dy <= border; dy++)
+            for (int dz = -border; dz <= border; dz++)
+            {
+                if (dx == 0 && dy == 0 && dz == 0) continue;
+                Vector3Int offset = new Vector3Int(dx, dy, dz);
+                Vector3Int neighborPos = chunkPos + offset;
+                if (stageIndex == 0)
+                {
+                    // For the first stage, neighbors are always empty (all air)
+                    neighborSnapshots[offset] = new OptimizedVoxelStorage(chunkSize, chunkHeight);
+                }
+                else
+                {
+                    neighborSnapshots[offset] = GenerateStage(neighborPos, stageIndex - 1, chunkSize, chunkHeight, world, cache);
+                }
+            }
+        }
+
+        // Run the stage
+        stage.Generate(chunkPos, input, neighborSnapshots, world);
+        cache.stageSnapshots[stageIndex][chunkPos] = input;
+        return input;
     }
 }
 
@@ -166,7 +218,7 @@ public class TerrainShapingStage : IChunkGenerationStage
     }
 }
 
-// --- Topsoil Stage ---
+// --- Topsoil Stage with cross-chunk neighbor reads ---
 public class TopsoilStage : IChunkGenerationStage
 {
     public int BorderSize => 1;
@@ -194,11 +246,26 @@ public class TopsoilStage : IChunkGenerationStage
             {
                 if (target.GetVoxel(x, y, z).type == Voxel.VoxelType.Stone)
                 {
-                    // Look for air above
+                    // Look for air above (may cross chunk boundary)
                     bool nearSurface = false;
-                    for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                    for (int dy = 1; dy <= maxSurfaceSearch; dy++)
                     {
-                        if (target.GetVoxel(x, y + dy, z).type == Voxel.VoxelType.Air)
+                        int ay = y + dy;
+                        Voxel above;
+                        if (ay < chunkHeight)
+                        {
+                            above = target.GetVoxel(x, ay, z);
+                        }
+                        else
+                        {
+                            // Read from neighbor above
+                            Vector3Int aboveOffset = new Vector3Int(0, 1, 0);
+                            if (neighborSnapshots.TryGetValue(aboveOffset, out var neighbor))
+                                above = neighbor.GetVoxel(x, ay - chunkHeight, z);
+                            else
+                                above = new Voxel(Voxel.VoxelType.Air, false);
+                        }
+                        if (above.type == Voxel.VoxelType.Air)
                         {
                             nearSurface = true;
                             break;
@@ -211,7 +278,7 @@ public class TopsoilStage : IChunkGenerationStage
             }
             if (surfaceY == -1) continue;
 
-            // Check slope using 4-adjacent columns
+            // Check slope using 4-adjacent columns (may cross chunk boundaries)
             int[] adjSurface = new int[4];
             for (int i = 0; i < 4; i++) adjSurface[i] = surfaceY;
             int[,] offsets = new int[4, 2] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
@@ -219,27 +286,52 @@ public class TopsoilStage : IChunkGenerationStage
             {
                 int nx = x + offsets[i, 0];
                 int nz = z + offsets[i, 1];
-                if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize)
+                Vector3Int adjOffset = new Vector3Int(
+                    nx < 0 ? -1 : (nx >= chunkSize ? 1 : 0),
+                    0,
+                    nz < 0 ? -1 : (nz >= chunkSize ? 1 : 0)
+                );
+                int lx = (nx + chunkSize) % chunkSize;
+                int lz = (nz + chunkSize) % chunkSize;
+                Voxel getVoxel(int xx, int yy, int zz)
                 {
-                    for (int y = chunkHeight - 1; y >= 0; y--)
+                    if (xx >= 0 && xx < chunkSize && zz >= 0 && zz < chunkSize)
+                        return target.GetVoxel(xx, yy, zz);
+                    // Cross-chunk neighbor
+                    if (neighborSnapshots.TryGetValue(adjOffset, out var neighbor))
+                        return neighbor.GetVoxel(lx, yy, lz);
+                    return new Voxel(Voxel.VoxelType.Air, false);
+                }
+                for (int y = chunkHeight - 1; y >= 0; y--)
+                {
+                    if (getVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
                     {
-                        if (target.GetVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
+                        // Look for air above
+                        bool nearSurface = false;
+                        for (int dy = 1; dy <= maxSurfaceSearch; dy++)
                         {
-                            // Look for air above
-                            bool nearSurface = false;
-                            for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                            int ay = y + dy;
+                            Voxel above;
+                            if (ay < chunkHeight)
+                                above = getVoxel(nx, ay, nz);
+                            else
                             {
-                                if (target.GetVoxel(nx, y + dy, nz).type == Voxel.VoxelType.Air)
-                                {
-                                    nearSurface = true;
-                                    break;
-                                }
+                                Vector3Int aboveOffset = adjOffset + new Vector3Int(0, 1, 0);
+                                if (neighborSnapshots.TryGetValue(aboveOffset, out var neighbor))
+                                    above = neighbor.GetVoxel(lx, ay - chunkHeight, lz);
+                                else
+                                    above = new Voxel(Voxel.VoxelType.Air, false);
                             }
-                            if (nearSurface)
+                            if (above.type == Voxel.VoxelType.Air)
                             {
-                                adjSurface[i] = y;
+                                nearSurface = true;
                                 break;
                             }
+                        }
+                        if (nearSurface)
+                        {
+                            adjSurface[i] = y;
+                            break;
                         }
                     }
                 }
@@ -270,6 +362,105 @@ public class TopsoilStage : IChunkGenerationStage
                     target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Grass, true));
                 else
                     target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Dirt, true));
+            }
+        }
+    }
+}
+
+// --- Lighting Stage ---
+public class LightingStage : IChunkGenerationStage
+{
+    public int BorderSize => 1; // Need neighbors for seamless lighting
+    private const byte maxLight = 15;
+    public void Generate(
+        Vector3Int chunkPos,
+        OptimizedVoxelStorage target,
+        Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots,
+        World world)
+    {
+        int chunkSize = world.chunkSize;
+        int chunkHeight = world.chunkHeight;
+
+        // Step 0: Set all voxels to lightLevel = 0
+        for (int x = 0; x < chunkSize; x++)
+        for (int y = 0; y < chunkHeight; y++)
+        for (int z = 0; z < chunkSize; z++)
+        {
+            var voxel = target.GetVoxel(x, y, z);
+            voxel.lightLevel = 0;
+            target.SetVoxel(x, y, z, voxel);
+        }
+
+        // Step 1: Set sky light for air blocks exposed to the sky
+        for (int x = 0; x < chunkSize; x++)
+        for (int z = 0; z < chunkSize; z++)
+        {
+            bool sky = true;
+            for (int y = chunkHeight - 1; y >= 0; y--)
+            {
+                var voxel = target.GetVoxel(x, y, z);
+                if (sky && voxel.type == Voxel.VoxelType.Air)
+                {
+                    voxel.lightLevel = maxLight;
+                    target.SetVoxel(x, y, z, voxel);
+                }
+                else if (voxel.type != Voxel.VoxelType.Air)
+                {
+                    sky = false;
+                }
+            }
+        }
+
+        // Step 2: Propagate light through air blocks only
+        Queue<(int x, int y, int z)> queue = new Queue<(int, int, int)>();
+        for (int x = 0; x < chunkSize; x++)
+        for (int y = 0; y < chunkHeight; y++)
+        for (int z = 0; z < chunkSize; z++)
+        {
+            if (target.GetVoxel(x, y, z).lightLevel == maxLight)
+                queue.Enqueue((x, y, z));
+        }
+        int[] dx = { -1, 1, 0, 0, 0, 0 };
+        int[] dy = { 0, 0, -1, 1, 0, 0 };
+        int[] dz = { 0, 0, 0, 0, -1, 1 };
+        while (queue.Count > 0)
+        {
+            var (x, y, z) = queue.Dequeue();
+            byte curLight = target.GetVoxel(x, y, z).lightLevel;
+            if (curLight <= 1) continue;
+            for (int dir = 0; dir < 6; dir++)
+            {
+                int nx = x + dx[dir];
+                int ny = y + dy[dir];
+                int nz = z + dz[dir];
+                Voxel neighborVoxel;
+                if (nx >= 0 && nx < chunkSize && ny >= 0 && ny < chunkHeight && nz >= 0 && nz < chunkSize)
+                {
+                    neighborVoxel = target.GetVoxel(nx, ny, nz);
+                }
+                else
+                {
+                    Vector3Int offset = new Vector3Int(
+                        nx < 0 ? -1 : (nx >= chunkSize ? 1 : 0),
+                        ny < 0 ? -1 : (ny >= chunkHeight ? 1 : 0),
+                        nz < 0 ? -1 : (nz >= chunkSize ? 1 : 0)
+                    );
+                    int lx = (nx + chunkSize) % chunkSize;
+                    int ly = (ny + chunkHeight) % chunkHeight;
+                    int lz = (nz + chunkSize) % chunkSize;
+                    if (neighborSnapshots.TryGetValue(offset, out var neighborChunk))
+                        neighborVoxel = neighborChunk.GetVoxel(lx, ly, lz);
+                    else
+                        continue;
+                }
+                // Only propagate into air blocks
+                if (neighborVoxel.type == Voxel.VoxelType.Air && neighborVoxel.lightLevel + 2 <= curLight)
+                {
+                    neighborVoxel.lightLevel = (byte)(curLight - 2);
+                    if (nx >= 0 && nx < chunkSize && ny >= 0 && ny < chunkHeight && nz >= 0 && nz < chunkSize)
+                        target.SetVoxel(nx, ny, nz, neighborVoxel);
+                    queue.Enqueue((nx, ny, nz));
+                }
             }
         }
     }

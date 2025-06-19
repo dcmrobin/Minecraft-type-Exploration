@@ -123,7 +123,7 @@
 					float blockLight = i.color.g;
 					
 					// Combine global and block lighting
-					shade = min(shade, blockLight);
+					shade = blockLight * GlobalLightLevel;
 
 					clip(col.a - 1);
 					// Apply lighting (higher shade = brighter)
