@@ -14,9 +14,10 @@ public interface IChunkGenerationStage
 
 public static class ChunkGenerationPipeline
 {
-    // Use only the terrain shaping stage for now
+    // Terrain shaping and topsoil stages
     private static List<IChunkGenerationStage> stages = new List<IChunkGenerationStage> {
-        new TerrainShapingStage()
+        new TerrainShapingStage(),
+        new TopsoilStage()
     };
 
     public static OptimizedVoxelStorage GenerateChunk(
@@ -32,22 +33,22 @@ public static class ChunkGenerationPipeline
     }
 }
 
-// --- Terrain Shaping Stage ---
+// --- Terrain Shaping Stage with Upsampling ---
 public class TerrainShapingStage : IChunkGenerationStage
 {
-    public int BorderSize => 0;
+    public int BorderSize => 1; // For future neighbor-aware stages
 
     // Parameters for tuning
-    private const float seaLevel = 0.0f; // World Y=0 is sea level
-    private const float continentalScale = 256f; // Large scale for continents
+    private const float seaLevel = 0.0f;
+    private const float continentalScale = 256f;
     private const float continentalContrast = 2.5f;
-    private const float regionalScale = 32f; // Medium scale for hills/cliffs
+    private const float regionalScale = 32f;
     private const float cliffBlendScale = 32f;
     private const float cliffContrast = 2.5f;
-    private const float verticalFalloff = 0.025f; // How quickly density falls off with height
-    private const float seaCompressionStrength = 6.0f; // Higher = wider beaches
-    private const float stoneThreshold = 0.0f; // Density threshold for stone
-    private const float worldHeight = 128f; // Used for vertical normalization
+    private const float verticalFalloff = 0.025f;
+    private const float seaCompressionStrength = 6.0f;
+    private const float stoneThreshold = 0.0f;
+    private const int upsample = 4; // 4x4x4 upsampling
 
     public void Generate(
         Vector3Int chunkPos,
@@ -61,18 +62,24 @@ public class TerrainShapingStage : IChunkGenerationStage
         int baseY = chunkPos.y * chunkHeight;
         int baseZ = chunkPos.z * chunkSize;
 
-        for (int x = 0; x < chunkSize; x++)
-        for (int y = 0; y < chunkHeight; y++)
-        for (int z = 0; z < chunkSize; z++)
+        int gridX = (chunkSize + upsample - 1) / upsample + 1;
+        int gridY = (chunkHeight + upsample - 1) / upsample + 1;
+        int gridZ = (chunkSize + upsample - 1) / upsample + 1;
+        float[,,] densityGrid = new float[gridX, gridY, gridZ];
+
+        // Sample density at grid points
+        for (int gx = 0; gx < gridX; gx++)
+        for (int gy = 0; gy < gridY; gy++)
+        for (int gz = 0; gz < gridZ; gz++)
         {
-            float wx = baseX + x;
-            float wy = baseY + y;
-            float wz = baseZ + z;
+            float wx = baseX + gx * upsample;
+            float wy = baseY + gy * upsample;
+            float wz = baseZ + gz * upsample;
 
             // --- Continental noise (2D) ---
             float contNoise = Mathf.PerlinNoise(wx / continentalScale, wz / continentalScale);
             contNoise = SoftContrast(contNoise, continentalContrast);
-            float continentHeight = Mathf.Lerp(-32f, 64f, contNoise); // Controls ocean/land height
+            float continentHeight = Mathf.Lerp(-32f, 64f, contNoise);
 
             // --- Sea compression (for beaches) ---
             float compressedY = SeaCompression(wy, seaLevel, seaCompressionStrength);
@@ -87,7 +94,44 @@ public class TerrainShapingStage : IChunkGenerationStage
             // --- Vertical falloff ---
             density -= (compressedY - continentHeight) * verticalFalloff;
 
-            // --- Place block ---
+            densityGrid[gx, gy, gz] = density;
+        }
+
+        // Trilinear interpolation for each voxel
+        for (int x = 0; x < chunkSize; x++)
+        for (int y = 0; y < chunkHeight; y++)
+        for (int z = 0; z < chunkSize; z++)
+        {
+            float fx = (float)x / upsample;
+            float fy = (float)y / upsample;
+            float fz = (float)z / upsample;
+            int x0 = Mathf.FloorToInt(fx);
+            int y0 = Mathf.FloorToInt(fy);
+            int z0 = Mathf.FloorToInt(fz);
+            int x1 = Mathf.Min(x0 + 1, gridX - 1);
+            int y1 = Mathf.Min(y0 + 1, gridY - 1);
+            int z1 = Mathf.Min(z0 + 1, gridZ - 1);
+            float tx = fx - x0;
+            float ty = fy - y0;
+            float tz = fz - z0;
+
+            float c000 = densityGrid[x0, y0, z0];
+            float c100 = densityGrid[x1, y0, z0];
+            float c010 = densityGrid[x0, y1, z0];
+            float c110 = densityGrid[x1, y1, z0];
+            float c001 = densityGrid[x0, y0, z1];
+            float c101 = densityGrid[x1, y0, z1];
+            float c011 = densityGrid[x0, y1, z1];
+            float c111 = densityGrid[x1, y1, z1];
+
+            float c00 = Mathf.Lerp(c000, c100, tx);
+            float c01 = Mathf.Lerp(c001, c101, tx);
+            float c10 = Mathf.Lerp(c010, c110, tx);
+            float c11 = Mathf.Lerp(c011, c111, tx);
+            float c0 = Mathf.Lerp(c00, c10, ty);
+            float c1 = Mathf.Lerp(c01, c11, ty);
+            float density = Mathf.Lerp(c0, c1, tz);
+
             if (density > stoneThreshold)
                 target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Stone, true));
             else
@@ -96,24 +140,19 @@ public class TerrainShapingStage : IChunkGenerationStage
     }
 
     // --- Helpers ---
-    // Simple 3D Perlin noise using 2D slices
     private float PerlinNoise3D(float x, float y, float z, float seed)
     {
         float xy = Mathf.PerlinNoise(x + seed, y + seed);
         float yz = Mathf.PerlinNoise(y + seed, z + seed);
         float zx = Mathf.PerlinNoise(z + seed, x + seed);
-        return (xy + yz + zx) / 3f * 2f - 1f; // Range [-1, 1]
+        return (xy + yz + zx) / 3f * 2f - 1f;
     }
-
-    // Soft contrast for noise (sigmoid-like)
     private float SoftContrast(float value, float contrast)
     {
         value = Mathf.Clamp01(value);
         float mid = 0.5f;
         return Mathf.Clamp01((value - mid) * contrast + mid);
     }
-
-    // Sea compression for wide beaches
     private float SeaCompression(float y, float seaLevel, float strength)
     {
         float d = y - seaLevel;
@@ -124,5 +163,114 @@ public class TerrainShapingStage : IChunkGenerationStage
             return seaLevel + sign * amt;
         }
         return y;
+    }
+}
+
+// --- Topsoil Stage ---
+public class TopsoilStage : IChunkGenerationStage
+{
+    public int BorderSize => 1;
+    private const int maxSoilDepth = 5;
+    private const int maxSurfaceSearch = 12;
+    private const float sandHeight = -8f;
+    private const float sandNoiseScale = 16f;
+    public void Generate(
+        Vector3Int chunkPos,
+        OptimizedVoxelStorage target,
+        Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots,
+        World world)
+    {
+        int chunkSize = world.chunkSize;
+        int chunkHeight = world.chunkHeight;
+        int baseX = chunkPos.x * chunkSize;
+        int baseY = chunkPos.y * chunkHeight;
+        int baseZ = chunkPos.z * chunkSize;
+        for (int x = 0; x < chunkSize; x++)
+        for (int z = 0; z < chunkSize; z++)
+        {
+            // Find surface height in this column
+            int surfaceY = -1;
+            for (int y = chunkHeight - 1; y >= 0; y--)
+            {
+                if (target.GetVoxel(x, y, z).type == Voxel.VoxelType.Stone)
+                {
+                    // Look for air above
+                    bool nearSurface = false;
+                    for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                    {
+                        if (target.GetVoxel(x, y + dy, z).type == Voxel.VoxelType.Air)
+                        {
+                            nearSurface = true;
+                            break;
+                        }
+                    }
+                    if (!nearSurface) continue;
+                    surfaceY = y;
+                    break;
+                }
+            }
+            if (surfaceY == -1) continue;
+
+            // Check slope using 4-adjacent columns
+            int[] adjSurface = new int[4];
+            for (int i = 0; i < 4; i++) adjSurface[i] = surfaceY;
+            int[,] offsets = new int[4, 2] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = x + offsets[i, 0];
+                int nz = z + offsets[i, 1];
+                if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize)
+                {
+                    for (int y = chunkHeight - 1; y >= 0; y--)
+                    {
+                        if (target.GetVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
+                        {
+                            // Look for air above
+                            bool nearSurface = false;
+                            for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                            {
+                                if (target.GetVoxel(nx, y + dy, nz).type == Voxel.VoxelType.Air)
+                                {
+                                    nearSurface = true;
+                                    break;
+                                }
+                            }
+                            if (nearSurface)
+                            {
+                                adjSurface[i] = y;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            int minAdj = Mathf.Min(adjSurface);
+            int maxAdj = Mathf.Max(adjSurface);
+            int slope = Mathf.Abs(surfaceY - minAdj) + Mathf.Abs(surfaceY - maxAdj);
+            int soilDepth = Mathf.Max(1, maxSoilDepth - slope);
+
+            // Sand/beach logic
+            float wx = baseX + x;
+            float wz = baseZ + z;
+            float sandNoise = Mathf.PerlinNoise(wx / sandNoiseScale, wz / sandNoiseScale);
+            float sandCutoff = sandHeight + Mathf.Lerp(-2f, 2f, sandNoise);
+            if (baseY + surfaceY < sandCutoff)
+            {
+                for (int y = surfaceY; y > surfaceY - soilDepth && y >= 0; y--)
+                {
+                    target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Sand, true));
+                }
+                continue;
+            }
+
+            // Place dirt (and grass on top)
+            for (int y = surfaceY; y > surfaceY - soilDepth && y >= 0; y--)
+            {
+                if (y == surfaceY)
+                    target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Grass, true));
+                else
+                    target.SetVoxel(x, y, z, new Voxel(Voxel.VoxelType.Dirt, true));
+            }
+        }
     }
 } 
