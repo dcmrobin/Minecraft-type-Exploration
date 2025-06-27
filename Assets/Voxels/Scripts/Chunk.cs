@@ -37,6 +37,8 @@ public class Chunk : MonoBehaviour
 
     private Dictionary<Vector3Int, Chunk> neighborChunkCache = new Dictionary<Vector3Int, Chunk>();
 
+    private int visibleBlockCount = 0; // Tracks number of non-air blocks
+
     private void Awake() {
         pos = transform.position;
         // Initialize chunk bounds
@@ -89,8 +91,8 @@ public class Chunk : MonoBehaviour
 
     private void GenerateFullMesh()
     {
-        // Early exit if no voxels are present
-        if (voxels == null || voxels.IsEmpty())
+        // Early exit if no voxels are present or chunk is empty
+        if (voxels == null || voxels.IsEmpty() || visibleBlockCount == 0)
         {
             if (meshFilter.mesh != null)
             {
@@ -98,6 +100,8 @@ public class Chunk : MonoBehaviour
                 meshFilter.mesh = null;
                 meshCollider.sharedMesh = null;
             }
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
             return;
         }
 
@@ -188,6 +192,8 @@ public class Chunk : MonoBehaviour
                 meshFilter.mesh = null;
                 meshCollider.sharedMesh = null;
             }
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
             return;
         }
 
@@ -200,6 +206,20 @@ public class Chunk : MonoBehaviour
         meshFilter.mesh = mesh;
         meshCollider.sharedMesh = mesh;
 
+        // Empty mesh rejection: if mesh has no vertices, skip draw call
+        if (mesh.vertexCount == 0)
+        {
+            ReturnMeshToPool(mesh);
+            meshFilter.mesh = null;
+            meshCollider.sharedMesh = null;
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
+            return;
+        }
+
+        if (meshRenderer != null)
+            meshRenderer.enabled = true;
+
         needsFullRegeneration = true;
         modifiedBlocks.Clear();
     }
@@ -209,7 +229,11 @@ public class Chunk : MonoBehaviour
         // Clear the AO cache before generating a partial mesh
         ClearAOCache();
         
-        if (modifiedBlocks.Count == 0) return;
+        if (modifiedBlocks.Count == 0 || visibleBlockCount == 0) {
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
+            return;
+        }
 
         // Store the current mesh data
         Mesh currentMesh = meshFilter.mesh;
@@ -261,7 +285,13 @@ public class Chunk : MonoBehaviour
 
     public void SetVoxel(int x, int y, int z, Voxel voxel)
     {
+        Voxel prev = voxels.GetVoxel(x, y, z);
         voxels.SetVoxel(x, y, z, voxel);
+        // Update visible block count
+        if (prev.type == Voxel.VoxelType.Air && voxel.type != Voxel.VoxelType.Air)
+            visibleBlockCount++;
+        else if (prev.type != Voxel.VoxelType.Air && voxel.type == Voxel.VoxelType.Air)
+            visibleBlockCount--;
         MarkBlockModified(x, y, z);
     }
 
@@ -459,6 +489,14 @@ public class Chunk : MonoBehaviour
         // Initially disable the mesh renderer
         meshRenderer.enabled = false;
 
+        // Count visible blocks
+        visibleBlockCount = 0;
+        for (int y = 0; y < chunkHeight; y++)
+            for (int x = 0; x < chunkSize; x++)
+                for (int z = 0; z < chunkSize; z++)
+                    if (voxels.GetVoxel(x, y, z).type != Voxel.VoxelType.Air)
+                        visibleBlockCount++;
+
         // Only update lighting and mesh, do not generate voxel data here
         GenerateFullMesh();
     }
@@ -482,6 +520,7 @@ public class Chunk : MonoBehaviour
     public void ResetChunk() {
         // Clear voxel data
         voxels.Clear();
+        visibleBlockCount = 0;
 
         // Clear mesh data
         vertices.Clear();
