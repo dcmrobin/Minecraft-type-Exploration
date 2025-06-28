@@ -96,6 +96,176 @@ public static class ChunkGenerationPipeline
         cache.stageSnapshots[stageIndex][chunkPos] = input;
         return input;
     }
+
+    // --- Border Light Fix-Up Pass ---
+    // Call this after chunk generation, and after generating any neighbor
+    public static void FixupChunkBorderLighting(
+        Vector3Int chunkPos,
+        OptimizedVoxelStorage chunkData,
+        int chunkSize,
+        int chunkHeight,
+        Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots)
+    {
+        // We'll use the same gather logic as in GatherLightFromNeighbors, but track which voxels are updated
+        Queue<Vector3Int> lightSources = new Queue<Vector3Int>();
+        
+        Vector3Int[] neighborOffsets = {
+            new Vector3Int(0, 1, 0),   // Above
+            new Vector3Int(0, -1, 0),  // Below
+            new Vector3Int(-1, 0, 0),  // Left
+            new Vector3Int(1, 0, 0),   // Right
+            new Vector3Int(0, 0, -1),  // Back
+            new Vector3Int(0, 0, 1)    // Front
+        };
+        
+        foreach (Vector3Int offset in neighborOffsets)
+        {
+            if (neighborSnapshots.TryGetValue(offset, out var neighborChunk))
+            {
+                // Check the face of the neighbor chunk that borders this chunk
+                FixupNeighborFaceForLight(chunkData, lightSources, chunkSize, chunkHeight, neighborChunk, offset);
+            }
+        }
+        // Propagate any newly gathered light
+        if (lightSources.Count > 0)
+        {
+            // Use the same propagation as before, but only within this chunk
+            PropagateLightStatic(chunkData, lightSources, chunkSize, chunkHeight);
+        }
+    }
+
+    // Helper for fix-up: gather light from neighbor face and enqueue updates
+    private static void FixupNeighborFaceForLight(
+        OptimizedVoxelStorage target,
+        Queue<Vector3Int> lightSources,
+        int chunkSize,
+        int chunkHeight,
+        OptimizedVoxelStorage neighborChunk,
+        Vector3Int offset)
+    {
+        int neighborX, neighborY, neighborZ;
+        if (offset.y != 0)
+        {
+            neighborY = offset.y > 0 ? 0 : chunkHeight - 1;
+            for (int x = 0; x < chunkSize; x++)
+            for (int z = 0; z < chunkSize; z++)
+            {
+                Voxel neighborVoxel = neighborChunk.GetVoxel(x, neighborY, z);
+                if (neighborVoxel.lightLevel > 0)
+                {
+                    int localY = offset.y > 0 ? chunkHeight - 1 : 0;
+                    Voxel localVoxel = target.GetVoxel(x, localY, z);
+                    if (localVoxel.type == Voxel.VoxelType.Air && localVoxel.lightLevel < neighborVoxel.lightLevel)
+                    {
+                        byte newLight = (byte)Mathf.Max(0, neighborVoxel.lightLevel - LightingStage.lightAttenuation);
+                        if (newLight > localVoxel.lightLevel)
+                        {
+                            localVoxel.lightLevel = newLight;
+                            target.SetVoxel(x, localY, z, localVoxel);
+                            lightSources.Enqueue(new Vector3Int(x, localY, z));
+                        }
+                    }
+                }
+            }
+        }
+        else if (offset.x != 0)
+        {
+            neighborX = offset.x > 0 ? 0 : chunkSize - 1;
+            for (int y = 0; y < chunkHeight; y++)
+            for (int z = 0; z < chunkSize; z++)
+            {
+                Voxel neighborVoxel = neighborChunk.GetVoxel(neighborX, y, z);
+                if (neighborVoxel.lightLevel > 0)
+                {
+                    int localX = offset.x > 0 ? chunkSize - 1 : 0;
+                    Voxel localVoxel = target.GetVoxel(localX, y, z);
+                    if (localVoxel.type == Voxel.VoxelType.Air && localVoxel.lightLevel < neighborVoxel.lightLevel)
+                    {
+                        byte newLight = (byte)Mathf.Max(0, neighborVoxel.lightLevel - LightingStage.lightAttenuation);
+                        if (newLight > localVoxel.lightLevel)
+                        {
+                            localVoxel.lightLevel = newLight;
+                            target.SetVoxel(localX, y, z, localVoxel);
+                            lightSources.Enqueue(new Vector3Int(localX, y, z));
+                        }
+                    }
+                }
+            }
+        }
+        else if (offset.z != 0)
+        {
+            neighborZ = offset.z > 0 ? 0 : chunkSize - 1;
+            for (int x = 0; x < chunkSize; x++)
+            for (int y = 0; y < chunkHeight; y++)
+            {
+                Voxel neighborVoxel = neighborChunk.GetVoxel(x, y, neighborZ);
+                if (neighborVoxel.lightLevel > 0)
+                {
+                    int localZ = offset.z > 0 ? chunkSize - 1 : 0;
+                    Voxel localVoxel = target.GetVoxel(x, y, localZ);
+                    if (localVoxel.type == Voxel.VoxelType.Air && localVoxel.lightLevel < neighborVoxel.lightLevel)
+                    {
+                        byte newLight = (byte)Mathf.Max(0, neighborVoxel.lightLevel - LightingStage.lightAttenuation);
+                        if (newLight > localVoxel.lightLevel)
+                        {
+                            localVoxel.lightLevel = newLight;
+                            target.SetVoxel(x, y, localZ, localVoxel);
+                            lightSources.Enqueue(new Vector3Int(x, y, localZ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Static version of PropagateLight for fix-up
+    // Only propagates within the chunk
+    // (This is a copy of the instance method, but static and public)
+    public static void PropagateLightStatic(
+        OptimizedVoxelStorage target,
+        Queue<Vector3Int> lightSources,
+        int chunkSize,
+        int chunkHeight)
+    {
+        Vector3Int[] directions = {
+            new Vector3Int(0, 1, 0),
+            new Vector3Int(0, -1, 0),
+            new Vector3Int(-1, 0, 0),
+            new Vector3Int(1, 0, 0),
+            new Vector3Int(0, 0, -1),
+            new Vector3Int(0, 0, 1)
+        };
+        while (lightSources.Count > 0)
+        {
+            Vector3Int current = lightSources.Dequeue();
+            byte currentLight = target.GetVoxel(current.x, current.y, current.z).lightLevel;
+            if (currentLight == 0) continue;
+            byte newLight = (byte)Mathf.Max(0, currentLight - LightingStage.lightAttenuation);
+            if (newLight == 0) continue;
+            foreach (Vector3Int dir in directions)
+            {
+                Vector3Int neighbor = current + dir;
+                if (neighbor.x >= 0 && neighbor.x < chunkSize &&
+                    neighbor.y >= 0 && neighbor.y < chunkHeight &&
+                    neighbor.z >= 0 && neighbor.z < chunkSize)
+                {
+                    var neighborVoxel = target.GetVoxel(neighbor.x, neighbor.y, neighbor.z);
+                    if (neighborVoxel.type == Voxel.VoxelType.Air || neighborVoxel.transparency > 0.5f)
+                    {
+                        if (newLight > neighborVoxel.lightLevel)
+                        {
+                            neighborVoxel.lightLevel = newLight;
+                            target.SetVoxel(neighbor.x, neighbor.y, neighbor.z, neighborVoxel);
+                            if (newLight > 0)
+                            {
+                                lightSources.Enqueue(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // --- Terrain Shaping Stage with Upsampling ---
@@ -435,7 +605,7 @@ public class LightingStage : IChunkGenerationStage
 {
     public int BorderSize => 1; // Need neighbors for proper light propagation across chunk boundaries
     private const byte maxLight = 15;
-    private const byte lightAttenuation = 1; // How much light decreases per block distance
+    public const byte lightAttenuation = 1; // How much light decreases per block distance
     
     public void Generate(
         Vector3Int chunkPos,
@@ -553,7 +723,8 @@ public class LightingStage : IChunkGenerationStage
         // Step 5: Propagate any newly gathered light
         if (lightSources.Count > 0)
         {
-            PropagateLight(target, lightSources, chunkSize, chunkHeight, neighborSnapshots);
+            // Use the same propagation as before, but only within this chunk
+            ChunkGenerationPipeline.PropagateLightStatic(target, lightSources, chunkSize, chunkHeight);
         }
     }
     

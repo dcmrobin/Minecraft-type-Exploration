@@ -290,6 +290,122 @@ public class World : MonoBehaviour
         Chunk chunk = chunkObj.AddComponent<Chunk>();
         chunk.Initialize(chunkSize, chunkHeight, generatedVoxels);
         chunks[chunkPos] = chunk;
+        
+        // Trigger border light fix-up for this chunk and its neighbors
+        StartCoroutine(FixupChunkBorderLighting(chunkPos, generatedVoxels));
+    }
+    
+    private System.Collections.IEnumerator FixupChunkBorderLighting(Vector3Int chunkPos, OptimizedVoxelStorage chunkData)
+    {
+        // Wait a frame to ensure all chunks are properly registered
+        yield return null;
+        
+        // Get neighbor snapshots for border light fix-up
+        Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots = GetNeighborSnapshots(chunkPos);
+        
+        // Run the fix-up on a background thread
+        bool fixupComplete = false;
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            ChunkGenerationPipeline.FixupChunkBorderLighting(
+                chunkPos, chunkData, chunkSize, chunkHeight, neighborSnapshots
+            );
+            fixupComplete = true;
+        });
+        
+        // Wait for fix-up to complete
+        while (!fixupComplete)
+        {
+            yield return null;
+        }
+        
+        // Regenerate mesh with updated lighting
+        if (chunks.TryGetValue(chunkPos, out Chunk chunk))
+        {
+            chunk.GenerateMesh();
+        }
+        
+        // Notify neighbors to also fix up their borders
+        NotifyNeighborsForBorderFixup(chunkPos);
+    }
+    
+    private Dictionary<Vector3Int, OptimizedVoxelStorage> GetNeighborSnapshots(Vector3Int chunkPos)
+    {
+        Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots = new Dictionary<Vector3Int, OptimizedVoxelStorage>();
+        
+        Vector3Int[] neighborOffsets = {
+            new Vector3Int(0, 1, 0),   // Above
+            new Vector3Int(0, -1, 0),  // Below
+            new Vector3Int(-1, 0, 0),  // Left
+            new Vector3Int(1, 0, 0),   // Right
+            new Vector3Int(0, 0, -1),  // Back
+            new Vector3Int(0, 0, 1)    // Front
+        };
+        
+        foreach (Vector3Int offset in neighborOffsets)
+        {
+            Vector3Int neighborPos = chunkPos + offset;
+            if (chunks.TryGetValue(neighborPos, out Chunk neighborChunk))
+            {
+                // Clone the neighbor's voxel data to avoid modifying the original
+                neighborSnapshots[offset] = neighborChunk.voxels.Clone();
+            }
+        }
+        
+        return neighborSnapshots;
+    }
+    
+    private void NotifyNeighborsForBorderFixup(Vector3Int chunkPos)
+    {
+        Vector3Int[] neighborOffsets = {
+            new Vector3Int(0, 1, 0),   // Above
+            new Vector3Int(0, -1, 0),  // Below
+            new Vector3Int(-1, 0, 0),  // Left
+            new Vector3Int(1, 0, 0),   // Right
+            new Vector3Int(0, 0, -1),  // Back
+            new Vector3Int(0, 0, 1)    // Front
+        };
+        
+        foreach (Vector3Int offset in neighborOffsets)
+        {
+            Vector3Int neighborPos = chunkPos + offset;
+            if (chunks.TryGetValue(neighborPos, out Chunk neighborChunk))
+            {
+                // Trigger border fix-up for the neighbor
+                StartCoroutine(FixupNeighborBorderLighting(neighborPos, -offset));
+            }
+        }
+    }
+    
+    private System.Collections.IEnumerator FixupNeighborBorderLighting(Vector3Int neighborPos, Vector3Int sourceOffset)
+    {
+        // Wait a frame to ensure the source chunk is fully processed
+        yield return null;
+        
+        if (chunks.TryGetValue(neighborPos, out Chunk neighborChunk))
+        {
+            // Get neighbor snapshots for the neighbor chunk
+            Dictionary<Vector3Int, OptimizedVoxelStorage> neighborSnapshots = GetNeighborSnapshots(neighborPos);
+            
+            // Run the fix-up on a background thread
+            bool fixupComplete = false;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                ChunkGenerationPipeline.FixupChunkBorderLighting(
+                    neighborPos, neighborChunk.voxels, chunkSize, chunkHeight, neighborSnapshots
+                );
+                fixupComplete = true;
+            });
+            
+            // Wait for fix-up to complete
+            while (!fixupComplete)
+            {
+                yield return null;
+            }
+            
+            // Regenerate mesh with updated lighting
+            neighborChunk.GenerateMesh();
+        }
     }
 
     private void UpdateAdjacentChunksLighting(Vector3Int chunkPos)
@@ -386,58 +502,59 @@ public class World : MonoBehaviour
             // Update the block
             chunk.voxels.SetVoxel(localPos.x, localPos.y, localPos.z, new Voxel(type, type != Voxel.VoxelType.Air));
             
-            // Update lighting for this chunk and adjacent chunks
-            chunk.GenerateMesh();
-
-            // Update adjacent chunks if the block is on a chunk border
+            // Check if the block is on a chunk border
+            bool isOnBorder = false;
+            List<Vector3Int> adjacentChunks = new List<Vector3Int>();
+            
             if (localPos.x == 0)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(-1, 0, 0);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
-                {
-                    adjChunk.GenerateMesh();
-                }
+                adjacentChunks.Add(chunkPos + new Vector3Int(-1, 0, 0));
+                isOnBorder = true;
             }
             else if (localPos.x == chunkSize - 1)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(1, 0, 0);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
-                {
-                    adjChunk.GenerateMesh();
-                }
+                adjacentChunks.Add(chunkPos + new Vector3Int(1, 0, 0));
+                isOnBorder = true;
             }
 
             if (localPos.y == 0)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, -1, 0);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
-                {
-                    adjChunk.GenerateMesh();
-                }
+                adjacentChunks.Add(chunkPos + new Vector3Int(0, -1, 0));
+                isOnBorder = true;
             }
             else if (localPos.y == chunkHeight - 1)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 1, 0);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
-                {
-                    adjChunk.GenerateMesh();
-                }
+                adjacentChunks.Add(chunkPos + new Vector3Int(0, 1, 0));
+                isOnBorder = true;
             }
 
             if (localPos.z == 0)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, -1);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
-                {
-                    adjChunk.GenerateMesh();
-                }
+                adjacentChunks.Add(chunkPos + new Vector3Int(0, 0, -1));
+                isOnBorder = true;
             }
             else if (localPos.z == chunkSize - 1)
             {
-                Vector3Int adjChunkPos = chunkPos + new Vector3Int(0, 0, 1);
-                if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                adjacentChunks.Add(chunkPos + new Vector3Int(0, 0, 1));
+                isOnBorder = true;
+            }
+            
+            // Update lighting for this chunk and adjacent chunks
+            chunk.GenerateMesh();
+            
+            // If the block is on a border, trigger border light fix-up
+            if (isOnBorder)
+            {
+                StartCoroutine(FixupChunkBorderLighting(chunkPos, chunk.voxels));
+                
+                // Also fix up adjacent chunks
+                foreach (Vector3Int adjChunkPos in adjacentChunks)
                 {
-                    adjChunk.GenerateMesh();
+                    if (chunks.TryGetValue(adjChunkPos, out Chunk adjChunk))
+                    {
+                        adjChunk.GenerateMesh();
+                        StartCoroutine(FixupChunkBorderLighting(adjChunkPos, adjChunk.voxels));
+                    }
                 }
             }
         }
