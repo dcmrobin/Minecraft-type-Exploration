@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using System.Threading.Tasks;
+using System.Collections;
 
 public class World : MonoBehaviour
 {
@@ -23,7 +24,7 @@ public class World : MonoBehaviour
     public int chunkHeight = 16;
     public Material VoxelMaterial;
     public int renderDistance = 5;
-    public int safetyRadius = 4; // Chunks within this radius will always be generated
+    public int safetyRadius = 4;
 
     private Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
     private Queue<Vector3Int> chunkLoadQueue = new Queue<Vector3Int>();
@@ -256,11 +257,32 @@ public class World : MonoBehaviour
     {
         if (chunks.ContainsKey(chunkPos)) return;
 
-        // Generate chunk data using the new pipeline (to be implemented)
-        OptimizedVoxelStorage generatedVoxels = ChunkGenerationPipeline.GenerateChunk(
-            chunkPos, chunkSize, chunkHeight, this
-        );
+        // Start asynchronous chunk generation
+        StartCoroutine(CreateChunkAsync(chunkPos));
+    }
 
+    private System.Collections.IEnumerator CreateChunkAsync(Vector3Int chunkPos)
+    {
+        // Generate chunk data using the new pipeline (asynchronously)
+        OptimizedVoxelStorage generatedVoxels = null;
+        
+        // Run chunk generation on a background thread
+        bool generationComplete = false;
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            generatedVoxels = ChunkGenerationPipeline.GenerateChunk(
+                chunkPos, chunkSize, chunkHeight, this
+            );
+            generationComplete = true;
+        });
+
+        // Wait for generation to complete
+        while (!generationComplete)
+        {
+            yield return null;
+        }
+
+        // Create the chunk GameObject on the main thread
         GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}_{chunkPos.z}");
         chunkObj.transform.parent = transform;
         chunkObj.transform.position = new Vector3(chunkPos.x * chunkSize, chunkPos.y * chunkHeight, chunkPos.z * chunkSize);
