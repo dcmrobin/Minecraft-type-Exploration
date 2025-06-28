@@ -25,6 +25,6 @@ public struct Voxel
         this.type = type;
         this.isActive = isActive;
         this.transparency = transparency;
-        this.lightLevel = 15; // Start fully lit
+        this.lightLevel = 0; // Start with no light
     }
 }

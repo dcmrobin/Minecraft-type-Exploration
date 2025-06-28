@@ -444,10 +444,10 @@ public class Chunk : MonoBehaviour
             int y = (int)position.y;
             int z = (int)position.z;
             
-            // Get the light level from the block and normalize it to 0.1-1.0 range
+            // Get the light level from the block and normalize it to 0-1 range
             Voxel voxel = voxels.GetVoxel(x, y, z);
-            // Convert from 0-15 to 0.1-1.0 range
-            color.g = 0.1f + (voxel.lightLevel / 15.0f * 0.9f);
+            // Convert from 0-15 to 0-1 range (consistent with AddFaceData)
+            color.g = voxel.lightLevel / 15.0f;
             colors.Add(color);
         }
 
