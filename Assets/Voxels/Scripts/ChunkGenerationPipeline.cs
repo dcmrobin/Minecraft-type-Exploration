@@ -59,6 +59,12 @@ public static class ChunkGenerationPipeline
         int border = stage.BorderSize;
         if (border > 0)
         {
+            // Add the current chunk's original terrain snapshot (for reading unmodified terrain)
+            if (stageIndex > 0)
+            {
+                neighborSnapshots[Vector3Int.zero] = GenerateStage(chunkPos, 0, chunkSize, chunkHeight, world, cache);
+            }
+            
             // Only generate essential neighbors to avoid exponential growth
             // For topsoiling, we mainly need the chunk above for surface detection
             Vector3Int[] essentialNeighbors = {
@@ -229,10 +235,11 @@ public class TerrainShapingStage : IChunkGenerationStage
 public class TopsoilStage : IChunkGenerationStage
 {
     public int BorderSize => 1; // Need neighbors for proper surface detection
-    private const int maxSoilDepth = 5;
+    private const int maxSoilDepth = 8; // Increased from 5 to 8 for more visible soil layers
     private const int maxSurfaceSearch = 12;
     private const float sandHeight = -8f;
     private const float sandNoiseScale = 16f;
+    private const int maxSlopeForTopsoiling = 7; // Increased from 4 to 8 to prevent checkerboard pattern
     public void Generate(
         Vector3Int chunkPos,
         OptimizedVoxelStorage target,
@@ -287,7 +294,7 @@ public class TopsoilStage : IChunkGenerationStage
 
             // Check slope using 4-adjacent columns (may cross chunk boundaries)
             int[] adjSurface = new int[4];
-            for (int i = 0; i < 4; i++) adjSurface[i] = surfaceY;
+            for (int i = 0; i < 4; i++) adjSurface[i] = surfaceY; // Default to current surface height
             int[,] offsets = new int[4, 2] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
             for (int i = 0; i < 4; i++)
             {
@@ -303,17 +310,26 @@ public class TopsoilStage : IChunkGenerationStage
                 Voxel getVoxel(int xx, int yy, int zz)
                 {
                     if (xx >= 0 && xx < chunkSize && zz >= 0 && zz < chunkSize)
-                        return target.GetVoxel(xx, yy, zz);
+                    {
+                        // For the current chunk, read from the original terrain snapshot (stage 0)
+                        // This ensures we're reading the original stone terrain, not modified topsoil
+                        if (neighborSnapshots.TryGetValue(Vector3Int.zero, out var currentChunkSnapshot))
+                            return currentChunkSnapshot.GetVoxel(xx, yy, zz);
+                        else
+                            return target.GetVoxel(xx, yy, zz);
+                    }
                     // Cross-chunk neighbor
                     if (neighborSnapshots.TryGetValue(adjOffset, out var neighbor))
                         return neighbor.GetVoxel(lx, yy, lz);
                     return new Voxel(Voxel.VoxelType.Air, false);
                 }
+                
+                // Find the actual surface height for this adjacent column (same logic as main surface detection)
                 for (int y = chunkHeight - 1; y >= 0; y--)
                 {
                     if (getVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
                     {
-                        // Look for air above
+                        // Look for air above (same logic as main surface detection)
                         bool nearSurface = false;
                         for (int dy = 1; dy <= maxSurfaceSearch; dy++)
                         {
@@ -343,10 +359,50 @@ public class TopsoilStage : IChunkGenerationStage
                     }
                 }
             }
-            int minAdj = Mathf.Min(adjSurface);
-            int maxAdj = Mathf.Max(adjSurface);
-            int slope = Mathf.Abs(surfaceY - minAdj) + Mathf.Abs(surfaceY - maxAdj);
-            int soilDepth = Mathf.Max(1, maxSoilDepth - slope);
+            
+            // Use a more robust slope calculation that's less sensitive to noise
+            int maxHeightDiff = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                int diff = Mathf.Abs(surfaceY - adjSurface[i]);
+                if (diff > maxHeightDiff)
+                    maxHeightDiff = diff;
+            }
+            int slope = maxHeightDiff;
+            
+            // Simple cliff detection: if any adjacent column is significantly lower, it's a cliff
+            // This prevents zebra patterns by being more consistent
+            bool isCliff = false;
+            int steepestDrop = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                int drop = surfaceY - adjSurface[i];
+                if (drop > steepestDrop)
+                    steepestDrop = drop;
+                if (adjSurface[i] < surfaceY - maxSlopeForTopsoiling / 2)
+                {
+                    isCliff = true;
+                    break;
+                }
+            }
+            
+            // Skip topsoiling if it's a cliff
+            if (isCliff)
+            {
+                continue; // This is a cliff, no topsoiling
+            }
+            
+            // Check if this column is near a cliff edge (has a significant drop but not enough to be a cliff)
+            bool nearCliff = steepestDrop > maxSlopeForTopsoiling / 3; // 3+ block drop indicates near cliff
+            
+            // Ensure minimum soil depth of 3 layers, and don't reduce too much by slope
+            int soilDepth = Mathf.Max(3, maxSoilDepth - Mathf.Min(slope, 2));
+            
+            // If near a cliff, reduce soil depth significantly to prevent visible soil layers
+            if (nearCliff)
+            {
+                soilDepth = Mathf.Min(soilDepth, 2); // Only 1-2 layers of soil near cliffs
+            }
 
             // Sand/beach logic
             float wx = baseX + x;
