@@ -59,12 +59,19 @@ public static class ChunkGenerationPipeline
         int border = stage.BorderSize;
         if (border > 0)
         {
-            for (int dx = -border; dx <= border; dx++)
-            for (int dy = -border; dy <= border; dy++)
-            for (int dz = -border; dz <= border; dz++)
+            // Only generate essential neighbors to avoid exponential growth
+            // For topsoiling, we mainly need the chunk above for surface detection
+            Vector3Int[] essentialNeighbors = {
+                new Vector3Int(0, 1, 0),   // Above (most important for topsoiling)
+                new Vector3Int(0, -1, 0),  // Below
+                new Vector3Int(1, 0, 0),   // Right
+                new Vector3Int(-1, 0, 0),  // Left
+                new Vector3Int(0, 0, 1),   // Front
+                new Vector3Int(0, 0, -1)   // Back
+            };
+            
+            foreach (var offset in essentialNeighbors)
             {
-                if (dx == 0 && dy == 0 && dz == 0) continue;
-                Vector3Int offset = new Vector3Int(dx, dy, dz);
                 Vector3Int neighborPos = chunkPos + offset;
                 if (stageIndex == 0)
                 {
@@ -88,7 +95,7 @@ public static class ChunkGenerationPipeline
 // --- Terrain Shaping Stage with Upsampling ---
 public class TerrainShapingStage : IChunkGenerationStage
 {
-    public int BorderSize => 0; // Reduced from 1 to 0 for better performance
+    public int BorderSize => 0; // No neighbors needed for basic terrain
 
     // Parameters for tuning
     private const float seaLevel = 0.0f;
@@ -221,7 +228,7 @@ public class TerrainShapingStage : IChunkGenerationStage
 // --- Topsoil Stage with cross-chunk neighbor reads ---
 public class TopsoilStage : IChunkGenerationStage
 {
-    public int BorderSize => 0; // Reduced from 1 to 0 for better performance
+    public int BorderSize => 1; // Need neighbors for proper surface detection
     private const int maxSoilDepth = 5;
     private const int maxSurfaceSearch = 12;
     private const float sandHeight = -8f;
@@ -246,11 +253,25 @@ public class TopsoilStage : IChunkGenerationStage
             {
                 if (target.GetVoxel(x, y, z).type == Voxel.VoxelType.Stone)
                 {
-                    // Look for air above (within chunk only)
+                    // Look for air above (may cross chunk boundary)
                     bool nearSurface = false;
-                    for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                    for (int dy = 1; dy <= maxSurfaceSearch; dy++)
                     {
-                        Voxel above = target.GetVoxel(x, y + dy, z);
+                        int ay = y + dy;
+                        Voxel above;
+                        if (ay < chunkHeight)
+                        {
+                            above = target.GetVoxel(x, ay, z);
+                        }
+                        else
+                        {
+                            // Read from neighbor above
+                            Vector3Int aboveOffset = new Vector3Int(0, 1, 0);
+                            if (neighborSnapshots.TryGetValue(aboveOffset, out var neighbor))
+                                above = neighbor.GetVoxel(x, ay - chunkHeight, z);
+                            else
+                                above = new Voxel(Voxel.VoxelType.Air, false);
+                        }
                         if (above.type == Voxel.VoxelType.Air)
                         {
                             nearSurface = true;
@@ -264,7 +285,7 @@ public class TopsoilStage : IChunkGenerationStage
             }
             if (surfaceY == -1) continue;
 
-            // Check slope using 4-adjacent columns (within chunk only)
+            // Check slope using 4-adjacent columns (may cross chunk boundaries)
             int[] adjSurface = new int[4];
             for (int i = 0; i < 4; i++) adjSurface[i] = surfaceY;
             int[,] offsets = new int[4, 2] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
@@ -272,19 +293,42 @@ public class TopsoilStage : IChunkGenerationStage
             {
                 int nx = x + offsets[i, 0];
                 int nz = z + offsets[i, 1];
-                
-                // Skip if outside chunk bounds
-                if (nx < 0 || nx >= chunkSize || nz < 0 || nz >= chunkSize) continue;
-                
+                Vector3Int adjOffset = new Vector3Int(
+                    nx < 0 ? -1 : (nx >= chunkSize ? 1 : 0),
+                    0,
+                    nz < 0 ? -1 : (nz >= chunkSize ? 1 : 0)
+                );
+                int lx = (nx + chunkSize) % chunkSize;
+                int lz = (nz + chunkSize) % chunkSize;
+                Voxel getVoxel(int xx, int yy, int zz)
+                {
+                    if (xx >= 0 && xx < chunkSize && zz >= 0 && zz < chunkSize)
+                        return target.GetVoxel(xx, yy, zz);
+                    // Cross-chunk neighbor
+                    if (neighborSnapshots.TryGetValue(adjOffset, out var neighbor))
+                        return neighbor.GetVoxel(lx, yy, lz);
+                    return new Voxel(Voxel.VoxelType.Air, false);
+                }
                 for (int y = chunkHeight - 1; y >= 0; y--)
                 {
-                    if (target.GetVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
+                    if (getVoxel(nx, y, nz).type == Voxel.VoxelType.Stone)
                     {
-                        // Look for air above (within chunk only)
+                        // Look for air above
                         bool nearSurface = false;
-                        for (int dy = 1; dy <= maxSurfaceSearch && y + dy < chunkHeight; dy++)
+                        for (int dy = 1; dy <= maxSurfaceSearch; dy++)
                         {
-                            Voxel above = target.GetVoxel(nx, y + dy, nz);
+                            int ay = y + dy;
+                            Voxel above;
+                            if (ay < chunkHeight)
+                                above = getVoxel(nx, ay, nz);
+                            else
+                            {
+                                Vector3Int aboveOffset = adjOffset + new Vector3Int(0, 1, 0);
+                                if (neighborSnapshots.TryGetValue(aboveOffset, out var neighbor))
+                                    above = neighbor.GetVoxel(lx, ay - chunkHeight, lz);
+                                else
+                                    above = new Voxel(Voxel.VoxelType.Air, false);
+                            }
                             if (above.type == Voxel.VoxelType.Air)
                             {
                                 nearSurface = true;
