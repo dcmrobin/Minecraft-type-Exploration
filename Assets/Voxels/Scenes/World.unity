@@ -229,70 +229,14 @@ MonoBehaviour:
   globalLightLevel: 1
   dayColor: {r: 0.6367924, g: 0.9566627, b: 1, a: 1}
   nightColor: {r: 0.1, g: 0.1, b: 0.2, a: 1}
-  continentalnessCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0.1000061
-      inSlope: 0.09477823
-      outSlope: 0.09477823
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 0.43731385
-      value: 0.14145394
-      inSlope: 0.11811596
-      outSlope: 0.11811596
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.30867815
-    - serializedVersion: 3
-      time: 0.70001525
-      value: 0.266625
-      inSlope: 0.13607496
-      outSlope: 0.13607496
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 1
-    - serializedVersion: 3
-      time: 0.8686096
-      value: 1.1172745
-      inSlope: 0.8601343
-      outSlope: 0.8601343
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.6285098
-    - serializedVersion: 3
-      time: 1
-      value: 1.1499997
-      inSlope: 0.22864997
-      outSlope: 0.22864997
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.92746437
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  chunksPerFrame: 2
+  chunksPerFrame: 1
   useVerticalChunks: 1
   worldSize: 5
   chunkSize: 16
   chunkHeight: 16
-  maxHeight: 0.2
-  noiseFrequency: 100
-  noiseAmplitude: 30
   VoxelMaterial: {fileID: 2100000, guid: 63b8e671db1763f4c8ad07bffd8e2abc, type: 2}
   renderDistance: 7
   safetyRadius: 4
-  noiseSeedString: 5543820
-  noiseSeed: 0
 --- !u!4 &1773224465
 Transform:
   m_ObjectHideFlags: 0
