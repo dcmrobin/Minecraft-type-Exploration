@@ -9,6 +9,40 @@ using UnityEngine.Rendering;
 
 public class Chunk : MonoBehaviour
 {
+    // --- Greedy meshing pooled arrays ---
+    private bool[,] greedyMaskA;
+    private bool[,] greedyMaskB;
+    private Voxel.VoxelType[,] greedyTypeA;
+    private Voxel.VoxelType[,] greedyTypeB;
+
+    /// <summary>
+    /// Ensures the greedy meshing arrays are allocated and sized for the current chunk.
+    /// </summary>
+    private void EnsureGreedyArrays()
+    {
+        // Used for top/bottom faces (chunkSize x chunkSize)
+        if (greedyMaskA == null || greedyMaskA.GetLength(0) != chunkSize || greedyMaskA.GetLength(1) != chunkSize)
+            greedyMaskA = new bool[chunkSize, chunkSize];
+        if (greedyMaskB == null || greedyMaskB.GetLength(0) != chunkSize || greedyMaskB.GetLength(1) != chunkSize)
+            greedyMaskB = new bool[chunkSize, chunkSize];
+        if (greedyTypeA == null || greedyTypeA.GetLength(0) != chunkSize || greedyTypeA.GetLength(1) != chunkSize)
+            greedyTypeA = new Voxel.VoxelType[chunkSize, chunkSize];
+        if (greedyTypeB == null || greedyTypeB.GetLength(0) != chunkSize || greedyTypeB.GetLength(1) != chunkSize)
+            greedyTypeB = new Voxel.VoxelType[chunkSize, chunkSize];
+    }
+
+    /// <summary>
+    /// Clears a 2D bool mask array.
+    /// </summary>
+    private void ClearMask(bool[,] mask)
+    {
+        int len0 = mask.GetLength(0);
+        int len1 = mask.GetLength(1);
+        for (int i = 0; i < len0; i++)
+            for (int j = 0; j < len1; j++)
+                mask[i, j] = false;
+    }
+
     public OptimizedVoxelStorage voxels;
     public int chunkSize = 16;
     public int chunkHeight = 16;
@@ -20,6 +54,7 @@ public class Chunk : MonoBehaviour
     private readonly List<int> triangles = new();
     private readonly List<Vector2> uvs = new();
     List<Color> colors = new();
+    private readonly List<Vector3> normals = new();
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private MeshCollider meshCollider;
@@ -46,6 +81,11 @@ public class Chunk : MonoBehaviour
             new Vector3(chunkSize / 2f, chunkHeight / 2f, chunkSize / 2f),
             new Vector3(chunkSize, chunkHeight, chunkSize)
         );
+        // Pre-size mesh data lists to a reasonable upper bound for a chunk
+        int maxVerts = chunkSize * chunkSize * chunkHeight * 6; // generous upper bound
+        vertices.Capacity = maxVerts;
+        triangles.Capacity = maxVerts * 3 / 2;
+        colors.Capacity = maxVerts;
     }
 
     private Mesh GetMeshFromPool()
@@ -91,6 +131,7 @@ public class Chunk : MonoBehaviour
 
     private void GenerateFullMesh()
     {
+        EnsureGreedyArrays();
         // Early exit if no voxels are present or chunk is empty
         if (voxels == null || voxels.IsEmpty() || visibleBlockCount == 0)
         {
@@ -111,6 +152,7 @@ public class Chunk : MonoBehaviour
         vertices.Clear();
         triangles.Clear();
         colors.Clear();
+        normals.Clear();
 
         // First pass: identify visible faces and cache neighbor chunks
         for (int y = 0; y < chunkHeight; y++)
@@ -132,10 +174,13 @@ public class Chunk : MonoBehaviour
         // Process top and bottom faces with greedy meshing
         for (int y = 0; y < chunkHeight; y++)
         {
-            bool[,] topMask = new bool[chunkSize, chunkSize];
-            bool[,] bottomMask = new bool[chunkSize, chunkSize];
-            Voxel.VoxelType[,] topTypes = new Voxel.VoxelType[chunkSize, chunkSize];
-            Voxel.VoxelType[,] bottomTypes = new Voxel.VoxelType[chunkSize, chunkSize];
+            bool[,] topMask = greedyMaskA;
+            bool[,] bottomMask = greedyMaskB;
+            Voxel.VoxelType[,] topTypes = greedyTypeA;
+            Voxel.VoxelType[,] bottomTypes = greedyTypeB;
+
+            ClearMask(topMask);
+            ClearMask(bottomMask);
 
             // Create masks for this layer
             for (int x = 0; x < chunkSize; x++)
@@ -202,9 +247,12 @@ public class Chunk : MonoBehaviour
         mesh.SetVertices(vertices);
         mesh.SetTriangles(triangles, 0);
         mesh.SetColors(colors);
-        mesh.RecalculateNormals();
-        meshFilter.mesh = mesh;
-        meshCollider.sharedMesh = mesh;
+        mesh.SetNormals(normals); // assign explicit normals (see AddGreedyQuad)
+        mesh.MarkDynamic();
+        if (meshFilter.mesh != mesh)
+            meshFilter.mesh = mesh;
+        if (meshCollider.sharedMesh != mesh)
+            meshCollider.sharedMesh = mesh;
 
         // Empty mesh rejection: if mesh has no vertices, skip draw call
         if (mesh.vertexCount == 0)
@@ -297,13 +345,18 @@ public class Chunk : MonoBehaviour
 
     private void GreedyMeshSlice(int slice, bool isX, bool isPositive)
     {
-        bool[,] mask = new bool[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
-        Voxel.VoxelType[,] types = new Voxel.VoxelType[isX ? chunkHeight : chunkSize, isX ? chunkSize : chunkHeight];
+        EnsureGreedyArrays();
+        bool[,] mask = isX ? greedyMaskA : greedyMaskB;
+        Voxel.VoxelType[,] types = isX ? greedyTypeA : greedyTypeB;
+        ClearMask(mask);
+
+        int mainLen = isX ? chunkHeight : chunkSize;
+        int secLen = isX ? chunkSize : chunkHeight;
 
         // Create the mask and type arrays
-        for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
+        for (int i = 0; i < mainLen; i++)
         {
-            for (int j = 0; j < (isX ? chunkSize : chunkHeight); j++)
+            for (int j = 0; j < secLen; j++)
             {
                 int x = isX ? slice : j;
                 int y = isX ? i : slice;
@@ -325,9 +378,9 @@ public class Chunk : MonoBehaviour
         }
 
         // Greedy meshing
-        for (int i = 0; i < (isX ? chunkHeight : chunkSize); i++)
+        for (int i = 0; i < mainLen; i++)
         {
-            for (int j = 0; j < (isX ? chunkSize : chunkHeight); j++)
+            for (int j = 0; j < secLen; j++)
             {
                 if (!mask[i, j]) continue;
 
@@ -336,14 +389,14 @@ public class Chunk : MonoBehaviour
                 int height = 1;
 
                 // Find width
-                while (j + width < (isX ? chunkSize : chunkHeight) && mask[i, j + width] && types[i, j + width] == type)
+                while (j + width < secLen && mask[i, j + width] && types[i, j + width] == type)
                 {
                     width++;
                 }
 
                 // Find height
                 bool canExpand = true;
-                while (canExpand && i + height < (isX ? chunkHeight : chunkSize))
+                while (canExpand && i + height < mainLen)
                 {
                     for (int k = 0; k < width; k++)
                     {
@@ -392,7 +445,16 @@ public class Chunk : MonoBehaviour
     private void AddGreedyQuad(Vector3 position, int width, int height, int faceIndex, Voxel.VoxelType type)
     {
         int vertCount = vertices.Count;
-
+        Vector3 normal = Vector3.zero;
+        switch (faceIndex)
+        {
+            case 0: normal = Vector3.up; break;      // Top
+            case 1: normal = Vector3.down; break;    // Bottom
+            case 2: normal = Vector3.left; break;    // Left
+            case 3: normal = Vector3.right; break;   // Right
+            case 4: normal = Vector3.forward; break; // Front
+            case 5: normal = Vector3.back; break;    // Back
+        }
         // Add vertices based on face
         switch (faceIndex)
         {
@@ -434,21 +496,17 @@ public class Chunk : MonoBehaviour
                 break;
         }
 
-        // Add colors with light levels
+        // Add colors and normals for each vertex
         for (int i = 0; i < 4; i++)
         {
             Color color = GetBlockColor(type);
-            
-            // Get light level from the block itself
             int x = (int)position.x;
             int y = (int)position.y;
             int z = (int)position.z;
-            
-            // Get the light level from the block and normalize it to 0-1 range
             Voxel voxel = voxels.GetVoxel(x, y, z);
-            // Convert from 0-15 to 0-1 range (consistent with AddFaceData)
             color.g = voxel.lightLevel / 15.0f;
             colors.Add(color);
+            normals.Add(normal);
         }
 
         // Add triangles
